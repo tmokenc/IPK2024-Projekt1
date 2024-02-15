@@ -2,6 +2,7 @@
 #define CONNECTION_H
 
 #include "args.h"
+#include "string.h"
 #include <stdio.h>
 
 typedef struct {
@@ -11,10 +12,10 @@ typedef struct {
 Connection connect(Args args);
 
 /// return how many byte read
-int connection_receive(Connection *conn, char *buf, int buf_len);
+String connection_receive(Connection *conn);
 
-void connection_send(Connection *conn, char *buf, int buf_len);
+void connection_send(Connection *conn, String *str);
 
-void disconnect(Connection *connection);
+void disconnect(Connection *conn);
 
 #endif

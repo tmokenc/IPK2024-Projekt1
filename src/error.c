@@ -1,12 +1,11 @@
 #include "error.h"
 
-ErrorType ERROR;
+Error ERROR;
 
-
-void error_set(ErrorType error) {
+void set_error(Error error) {
     ERROR = error;
 }
 
-ErrorType error_get() {
+Error get_error() {
     return ERROR;
 }

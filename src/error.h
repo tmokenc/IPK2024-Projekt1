@@ -3,14 +3,15 @@
 
 typedef enum {
     None,
-    ErrorType_OutOfMemory,
-    ErrorType_InvalidArgument,
-    ErrorType_Connection,
-    ErrorType_BadQuery,
-} ErrorType;
+    Error_OutOfMemory,
+    Error_InvalidArgument,
+    Error_Connection,
+    Error_BadQuery,
+    Error_InvalidInput
+} Error;
 
-void error_set(ErrorType type);
+void set_error(Error type);
 
-ErrorType error_get();
+Error get_error();
 
 #endif

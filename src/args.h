@@ -8,7 +8,7 @@ typedef enum {
 
 typedef struct {
     ConnectionType type;
-    unsigned port;
+    int port;
     char *host;
 } Args;
 
