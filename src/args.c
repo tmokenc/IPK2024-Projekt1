@@ -2,10 +2,9 @@
 #include "error.h"
 #include <string.h>
 #include <stdio.h>
-#include <stdbool.h>
 
-/// return-1 for invalid port number
-int parse_port_number(char *str) {
+/// return -1 if in case of overflow (requires more than 16 bit) or not a number
+int parse_16bit_number(char *str) {
     int num = 0;
 
     for (int i = 0; str[i]; i++) {
@@ -16,7 +15,7 @@ int parse_port_number(char *str) {
         num *= 10;
         num += str[i] - '0';
 
-        if (num >= 1 << 16) {
+        if (num > UINT16_MAX) {
             return -1;
         }
     }
@@ -27,9 +26,21 @@ int parse_port_number(char *str) {
 Args parse_args(int argc, char **argv) {
     Args args;
 
+    if (argc == 2 && strcmp(argv[1], "-h") == 0) {
+        args.help = true;
+        return args;
+    }
+
+    args.port = 4567;
+    args.udp_timeout = 250;
+    args.udp_retransmissions = 3;
+    args.help = false;
+
     bool got_port = false;
     bool got_host = false;
-    bool got_type = false;
+    bool got_mode = false;
+    bool got_timeout = false;
+    bool got_udp_retransmissions = false;
 
     if (argc != 7) {
         set_error(Error_InvalidArgument);
@@ -42,40 +53,104 @@ Args parse_args(int argc, char **argv) {
         char *key = argv[idx++];
         char *val = argv[idx++];
 
-        if (strcmp(key, "-h") == 0) {
-            args.host = val;
-            got_host = true;
-        } else if (strcmp(key, "-p") == 0) {
-            args.port = parse_port_number(val);
-            if (args.port < 0) {
-                fprintf(stderr, "Port number should be in the range 0 to 65535\n");
-                set_error(Error_InvalidArgument);
-                break;
-            }
-
-            got_port = true;
-        } else if (strcmp(key, "-m") == 0) {
-            if (strcmp(val, "udp") == 0) {
-                args.type = ConnectionType_UDP;
-            } else if (strcmp(val, "tcp") == 0) {
-                args.type = ConnectionType_TCP;
-            } else {
-                set_error(Error_InvalidArgument);
-                break;
-            }
-
-            got_type = true;
-        } else {
+        if (strlen(key) != 2 && key[0] != '-') {
             set_error(Error_InvalidArgument);
-            break;
+            return args;
+        }
+
+        switch (key[1]) {
+            case 's': {
+                if (got_host) {
+                    set_error(Error_DuplicatedArgument);
+                    return args;
+                }
+
+                args.host = val;
+                got_host = true;
+                break;
+            }
+
+            case 'p': {
+                if (got_port) {
+                    set_error(Error_DuplicatedArgument);
+                    return args;
+                }
+
+                int num = parse_16bit_number(val);
+                if (num < 0) {
+                    fprintf(stderr, "Port number should be in the range 0 to 65535\n");
+                    set_error(Error_InvalidArgument);
+                    return args;
+                }
+
+                args.port = num;
+                got_port = true;
+                break;
+            }
+
+            case 't': {
+                if (got_mode) {
+                    set_error(Error_DuplicatedArgument);
+                    return args;
+                }
+
+                if (strcmp(val, "udp") == 0) {
+                    args.mode = ConnectionMode_UDP;
+                } else if (strcmp(val, "tcp") == 0) {
+                    args.mode = ConnectionMode_TCP;
+                } else {
+                    set_error(Error_InvalidArgument);
+                    return args;
+                }
+
+                got_mode = true;
+                break;
+            }
+
+            case 'd': {
+                if (got_timeout) {
+                    set_error(Error_DuplicatedArgument);
+                    return args;
+                }
+
+                int num = parse_16bit_number(val);
+                if (num < 0) {
+                    fprintf(stderr, "UDP confirmation timeout should be in the range 0 to 65535\n");
+                    set_error(Error_InvalidArgument);
+                    return args;
+                }
+
+                args.udp_timeout = num;
+                got_timeout = true;
+                break;
+            }
+            case 'r': {
+                if (got_udp_retransmissions) {
+                    set_error(Error_DuplicatedArgument);
+                    return args;
+                }
+
+                int num = parse_16bit_number(val);
+                if (num < 0 || num > UINT8_MAX) {
+                    fprintf(stderr, "UDP confirmation timeout should be in the range 0 to 255\n");
+                    set_error(Error_InvalidArgument);
+                    return args;
+                }
+
+                args.udp_retransmissions = num;
+                got_udp_retransmissions = true;
+                break;
+            }
+
+            default:
+                set_error(Error_InvalidArgument);
+                return args;
         }
     }
 
     if (!got_host) {
         set_error(Error_InvalidArgument);
-    } else if (!got_port) {
-        set_error(Error_InvalidArgument);
-    } else if (!got_type) {
+    } else if (!got_mode) {
         set_error(Error_InvalidArgument);
     }
 

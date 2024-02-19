@@ -5,6 +5,7 @@ typedef enum {
     None,
     Error_OutOfMemory,
     Error_InvalidArgument,
+    Error_DuplicatedArgument,
     Error_Connection,
     Error_BadQuery,
     Error_InvalidInput

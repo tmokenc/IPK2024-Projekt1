@@ -19,27 +19,24 @@ int main(int argc, char **argv) {
         return get_error();
     }
 
-    String input;
-
+    // Main loop
     while (1) {
-        input = readLineStdin(255);
+        String input = readLineStdin(255);
 
         if (get_error()) {
-            // OOPS
             break;
         }
 
         connection_send(&conn, &input);
 
         if (get_error()) {
-            // OOPS
+            string_free(&input);
             break;
         }
 
         String received = connection_receive(&conn);
 
         if (get_error()) {
-            // OOPS
             string_free(&input);
             string_free(&received);
             break;

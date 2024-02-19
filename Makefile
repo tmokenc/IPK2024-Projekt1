@@ -1,4 +1,4 @@
-PROJ=ipkcpc
+PROJ=ipk24chat-client
 SRC_DIR=src
 BUILD_DIR=build
 

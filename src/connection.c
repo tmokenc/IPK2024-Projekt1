@@ -1,32 +1,29 @@
 #include "connection.h"
+#include "udp.h"
+#include "tcp.h"
 
-Connection connect(Args args) {
-    Connection conn = {0};
-
-    (void)args;
+Connection connection_connect_udp(Args args) {
+    Connection conn;
     // TODO
+    return conn;
+}
 
+Connection connection_connect_tcp(Args args) {
+    Connection conn;
+    // TODO
     return conn;
 }
 
 /// return how many byte read
 String connection_receive(Connection *conn) {
-    String str = string_new();
-
-    (void)conn;
-    // TODO
-    
-    return str;
+    return (conn->receive)(conn);
 }
 
 void connection_send(Connection *conn, String *str) {
-    (void)conn;
-    (void)str;
-    // TODO
+    (conn->send)(conn, str);
 }
 
 void disconnect(Connection *conn) {
-    (void)conn;
-    // TODO
+    (conn->disconnect)(conn);
 }
 
