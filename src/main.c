@@ -2,7 +2,7 @@
 #include <string.h>
 #include <signal.h>
 #include "error.h"
-#include "connection.h"
+#include "client.h"
 #include "args.h"
 #include "input.h"
 
@@ -13,7 +13,7 @@ int main(int argc, char **argv) {
         return get_error();
     }
 
-    Connection conn = connect(args);
+    Client conn = connect(args);
 
     if (get_error()) {
         return get_error();

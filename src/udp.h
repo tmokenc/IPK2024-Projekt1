@@ -1,11 +1,11 @@
 #ifndef UDP_H
 #define UDP_H
 
-#include "connection.h"
+#include "client.h"
 
-void udp_auth(Connection *conn);
-String udp_receive(Connection *conn);
-void udp_send(Connection *conn, String *str);
-void udp_disconnect(Connection *conn);
+void udp_auth(Client *conn);
+String udp_receive(Client *conn);
+void udp_send(Client *conn, String *str);
+void udp_disconnect(Client *conn);
 
 #endif

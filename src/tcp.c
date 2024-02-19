@@ -1,12 +1,12 @@
 #include "tcp.h"
 
-void tcp_auth(Connection *conn) {
+void tcp_auth(Client *conn) {
     (void)conn;
     // TODO
 }
 
 
-String tcp_receive(Connection *conn) {
+String tcp_receive(Client *conn) {
     (void)conn;
 
     String str = string_new();
@@ -16,13 +16,13 @@ String tcp_receive(Connection *conn) {
     return str;
 }
 
-void tcp_send(Connection *conn, String *str) {
+void tcp_send(Client *conn, String *str) {
     (void)conn;
     (void)str;
     // TODO
 }
 
-void tcp_disconnect(Connection *conn) {
+void tcp_disconnect(Client *conn) {
     (void)conn;
     // TODO
 }

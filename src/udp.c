@@ -1,12 +1,12 @@
 #include "udp.h"
 
-void udp_auth(Connection *conn) {
+void udp_auth(Client *conn) {
     (void)conn;
     // TODO
 }
 
 
-String udp_receive(Connection *conn) {
+String udp_receive(Client *conn) {
     (void)conn;
 
     String str = string_new();
@@ -16,13 +16,13 @@ String udp_receive(Connection *conn) {
     return str;
 }
 
-void udp_send(Connection *conn, String *str) {
+void udp_send(Client *conn, String *str) {
     (void)conn;
     (void)str;
     // TODO
 }
 
-void udp_disconnect(Connection *conn) {
+void udp_disconnect(Client *conn) {
     (void)conn;
     // TODO
 }

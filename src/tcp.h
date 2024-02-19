@@ -1,11 +1,11 @@
 #ifndef TCP_H
 #define TCP_H
 
-#include "connection.h"
+#include "client.h"
 
-void tcp_auth(Connection *conn);
-String tcp_receive(Connection *conn);
-void tcp_send(Connection *conn, String *str);
-void tcp_disconnect(Connection *conn);
+void tcp_auth(Client *conn);
+String tcp_receive(Client *conn);
+void tcp_send(Client *conn, String *str);
+void tcp_disconnect(Client *conn);
 
 #endif
