@@ -5,12 +5,12 @@
 #include <stdint.h>
 
 typedef enum {
-    ConnectionMode_TCP,
-    ConnectionMode_UDP,
-} ConnectionMode;
+    Mode_TCP,
+    Mode_UDP,
+} Mode;
 
 typedef struct {
-    ConnectionMode mode;
+    Mode mode;
     char *host;
     uint16_t port;
     uint16_t udp_timeout;

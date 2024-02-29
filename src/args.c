@@ -95,9 +95,9 @@ Args parse_args(int argc, char **argv) {
                 }
 
                 if (strcmp(val, "udp") == 0) {
-                    args.mode = ConnectionMode_UDP;
+                    args.mode = Mode_UDP;
                 } else if (strcmp(val, "tcp") == 0) {
-                    args.mode = ConnectionMode_TCP;
+                    args.mode = Mode_TCP;
                 } else {
                     set_error(Error_InvalidArgument);
                     return args;

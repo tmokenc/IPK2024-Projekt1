@@ -1,7 +1,6 @@
 #ifndef COMMAND_H
 #define COMMAND_H
 
-#include "message.h"
 #include "connection.h"
 
 void command_auth(Connection *conn, Username username, Secret secret, DisplayName name);
