@@ -13,7 +13,7 @@
 
 /**
  * @brief Establish a non-blocing TCP connection to the specified host and port.
- * @param connection Pointer to the Connection structure representing the connection.
+ * @param connection Pointer to the Connection object representing the connection.
  */
 void tcp_connect(Connection *connection);
 
