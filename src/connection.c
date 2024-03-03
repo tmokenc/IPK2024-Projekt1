@@ -19,7 +19,7 @@ Connection connection_init(Args args) {
     Connection conn;
 
     int family = AF_INET;
-    int type;
+    int type = 0;
 
     switch (args.mode) {
         case Mode_UDP:
