@@ -58,6 +58,14 @@ void bytes_realloc(Bytes *bytes, ssize_t new_capacity);
 void bytes_push_arr(Bytes *bytes, const uint8_t *arr, size_t n);
 
 /**
+ * @brief Append a null-terminated C string to the Bytes, excluding the null terminator.
+ *
+ * @param bytes Pointer to the Bytes object to which the string will be appended.
+ * @param str Pointer to the null-terminated C string to append.
+ */
+void bytes_push_c_str(Bytes *bytes, const char *str);
+
+/**
  * @brief Removes the first n bytes from the Bytes object.
  * @param bytes The Bytes object from which bytes will be removed.
  * @param n The number of bytes to remove.

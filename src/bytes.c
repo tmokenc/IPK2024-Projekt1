@@ -8,6 +8,7 @@
 
 #include "bytes.h"
 #include "error.h"
+#include <string.h>
 
 size_t SIZE_CHUNK = 10;
 
@@ -66,6 +67,12 @@ void bytes_push_arr(Bytes *bytes, const uint8_t *arr, size_t len) {
     }
 
     bytes->len = new_len;
+}
+
+
+void bytes_push_c_str(Bytes *bytes, const char *str) {
+    size_t size = strlen(str);
+    bytes_push_arr(bytes, (const uint8_t *)str, size);
 }
 
 void bytes_remove_first_n(Bytes *bytes, size_t n) {
