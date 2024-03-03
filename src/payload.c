@@ -539,8 +539,8 @@ static size_t deserialize_udp_message_content(const uint8_t *bytes, size_t size,
 }
 
 static size_t deserialize_udp_username(const uint8_t *bytes, size_t size, PayloadDeserialization *result) {
-    MessageContent buf = {0};
-    ssize_t byte_read = scan_text(bytes, size, buf, MESSAGE_CONTENT_LEN);
+    Username buf = {0};
+    ssize_t byte_read = scan_text(bytes, size, buf, USERNAME_LEN);
     if (byte_read < 0) return 0;
 
     // `auth` is the only payload that has the `Username` in its data field
