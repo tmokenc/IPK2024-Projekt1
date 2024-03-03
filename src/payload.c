@@ -7,6 +7,8 @@
 
 #include "payload.h"
 #include "error.h"
+#include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 
 enum DataType {
@@ -27,20 +29,13 @@ static void deserialize_tcp(const uint8_t *bytes, size_t size, PayloadDeserializ
 static void deserialize_udp(const uint8_t *bytes, size_t size, PayloadDeserialization *result);
 
 /**
- * @brief Count the number of bytes up to the first 0 (including that 0).
- *
- * @param bytes Pointer to the byte array.
- * @return The number of bytes up to the first 0 (including that 0).
- * @note this function assumes that the byte will be valid and always contains the ending byte (byte 0)
- */
-static size_t byte_count(uint8_t *bytes);
-
-/**
  * @brief Helper functions for deserializing specific data types from a UDP byte stream.
  *
  * This group of functions includes helper functions to deserialize various data types such as payload type,
  * result, message ID, channel ID, message content, username, and display name from a UDP byte stream into
  * a PayloadDeserialization structure.
+ *
+ * @return Number of bytes processed
  */
 static size_t deserialize_udp_payload_type(const uint8_t *bytes, size_t size, PayloadDeserialization *result);
 static size_t deserialize_udp_result(const uint8_t *bytes, size_t size, PayloadDeserialization *result);
@@ -50,6 +45,48 @@ static size_t deserialize_udp_message_content(const uint8_t *bytes, size_t size,
 static size_t deserialize_udp_username(const uint8_t *bytes, size_t size, PayloadDeserialization *result);
 static size_t deserialize_udp_display_name(const uint8_t *bytes, size_t size, PayloadDeserialization *result);
 static size_t deserialize_udp_secret(const uint8_t *bytes, size_t size, PayloadDeserialization *result);
+
+/**
+ * @brief Count the number of bytes up to the first 0 (including that 0).
+ *
+ * @param bytes Pointer to the byte array.
+ * @return The number of bytes up to the first 0 (including that 0).
+ * @note this function assumes that the byte will be valid and always contains the ending byte (byte 0)
+ */
+static size_t byte_count(uint8_t *bytes);
+
+/**
+ * @brief Check if a byte array starts with a given null-terminated C string.
+ *
+ * @param bytes Pointer to the byte array to check.
+ * @param len Length of the byte array.
+ * @param str Pointer to the null-terminated C string to compare.
+ * @return true if the byte array starts with the given C string, false otherwise.
+ */
+static bool starts_with(const uint8_t *bytes, size_t len, const char *str);
+
+/**
+ * @brief Copy bytes from a byte array until it meets the specified null-terminated C string.
+ *
+ * This function copies bytes from the byte array to the output buffer until it encounters
+ * the specified null-terminated C string (excluding the string itself). It also appended 
+ * the NULL terminator to the output so it can act as a C string.
+ *
+ * @param bytes Pointer to the byte array to copy from.
+ * @param bytes_len Length of the byte array.
+ * @param ends_with Pointer to the null-terminated C string indicating the end condition.
+ * @param output Pointer to the output buffer where bytes will be copied.
+ * @param output_len Length of the output buffer.
+ * @return Number of bytes read from the byte array (including the end condition)
+ *         -1 if it cannot find the end condition within the output_len
+ */
+static ssize_t strcpy_until(
+    const uint8_t *bytes, 
+    size_t bytes_len, 
+    const char *ends_with, 
+    uint8_t *output, 
+    size_t output_len
+);
 
 /**
  * Helper Functions
@@ -88,7 +125,7 @@ static void deserialization_state_pop(uint32_t *current_state);
  * @return The number of bytes scanned and copied into the character buffer.
  *         -1 if it cannot read 
  */
-static size_t scan_text(const uint8_t *bytes, size_t len, char *buf, size_t buf_len);
+static size_t scan_text(const uint8_t *bytes, size_t len, uint8_t *buf, size_t buf_len);
 
 /// The ID of the next payload, this will be incremented each time the payload_new function is called
 MessageID NEXT_MESSAGE_ID;
@@ -130,7 +167,7 @@ void payload_deserialize(const uint8_t *bytes, size_t len, Mode mode, PayloadDes
 
 static void serialize_tcp(Payload *payload, Bytes *buffer) {
     #define PUSH(str) \
-        bytes_push_c_str(buffer, str); \
+        bytes_push_c_str(buffer, (char *)str); \
         if (get_error()) return
 
     switch (payload->type) {
@@ -233,8 +270,62 @@ static void serialize_udp(Payload *payload, Bytes *buffer) {
 }
 
 static void deserialize_tcp(const uint8_t *bytes, size_t len, PayloadDeserialization *result) {
+    ssize_t read;
 
-    // TODO
+    #define EXPECT_NEXT(buf, buf_len, ends_with) \
+        read = strcpy_until(bytes, len, ends_with, result->payload.data.buf, buf_len + 1); \
+        if (read <= 0) return; \
+        bytes += read; \
+        len -= read
+
+    if (starts_with(bytes, len, "JOIN ")) {
+        bytes += strlen("JOIN ");
+        len -= strlen("JOIN ");
+        EXPECT_NEXT(join.channel_id, CHANNEL_ID_LEN, " AS ");
+        EXPECT_NEXT(join.display_name, DISPLAY_NAME_LEN, "\r\n");
+        result->payload.type = PayloadType_Join;
+    }
+        
+    if (starts_with(bytes, len, "AUTH ")) {
+        bytes += strlen("AUTH ");
+        len -= strlen("AUTH ");
+        EXPECT_NEXT(auth.username, USERNAME_LEN, " AS ");
+        EXPECT_NEXT(auth.display_name, DISPLAY_NAME_LEN, " USING ");
+        EXPECT_NEXT(auth.secret, SECRET_LEN, "\r\n");
+        result->payload.type = PayloadType_Auth;
+    }
+        
+    if (starts_with(bytes, len, "MSG FROM ")) {
+        bytes += strlen("MSG FROM ");
+        len -= strlen("MSG FROM ");
+        EXPECT_NEXT(message.display_name, DISPLAY_NAME_LEN, " IS ");
+        EXPECT_NEXT(message.message_content, MESSAGE_CONTENT_LEN, "\r\n");
+        result->payload.type = PayloadType_Message;
+    }
+        
+    if (starts_with(bytes, len, "ERROR FROM ")) {
+        bytes += strlen("ERROR FROM ");
+        len -= strlen("ERROR FROM ");
+        EXPECT_NEXT(err.display_name, DISPLAY_NAME_LEN, " IS ");
+        EXPECT_NEXT(err.message_content, MESSAGE_CONTENT_LEN, "\r\n");
+        result->payload.type = PayloadType_Err;
+    }
+
+    if (starts_with(bytes, len, "ERROR FROM ")) {
+        bytes += strlen("ERROR FROM ");
+        len -= strlen("ERROR FROM ");
+        EXPECT_NEXT(err.message_content, MESSAGE_CONTENT_LEN, "\r\n");
+        result->payload.type = PayloadType_Reply;
+    }
+
+    if (starts_with(bytes, len, "BYE\r\n")) {
+        bytes += strlen("BYE\r\n");
+        len -= strlen("BYE\r\n");
+        result->payload.type = PayloadType_Bye;
+    }
+
+    /// It should be fully deserialized with nothing left
+    if (len != 0) set_error(Error_InvalidPayload);
 }
 
 static void deserialize_udp(const uint8_t *bytes, size_t len, PayloadDeserialization *result) {
@@ -270,8 +361,8 @@ static void deserialize_udp(const uint8_t *bytes, size_t len, PayloadDeserializa
             CASE(Username, username);
             CASE(Secret, secret);
             CASE(DisplayName, display_name);
-            case DataType_None: 
-                done = true; 
+            case DataType_None:
+                done = true;
                 break;
         }
 
@@ -290,7 +381,7 @@ static void deserialize_udp(const uint8_t *bytes, size_t len, PayloadDeserializa
     bytes_remove_first_n(&result->leftover, cursor);
 }
 
-static size_t scan_text(const uint8_t *bytes, size_t len, char *buf, size_t buf_len) {
+static size_t scan_text(const uint8_t *bytes, size_t len, uint8_t *buf, size_t buf_len) {
     for (size_t i = 0; i < len && i < buf_len; i++) {
         char ch = bytes[i];
 
@@ -306,7 +397,7 @@ static size_t scan_text(const uint8_t *bytes, size_t len, char *buf, size_t buf_
 
         // Found the end
         // i is the index (starts from 0), that's why it need + 1 to get the total number of bytes
-        if (ch == 0) return i + 1; 
+        if (ch == 0) return i + 1;
     }
 
     return -1;
@@ -513,6 +604,35 @@ static size_t byte_count(uint8_t *bytes) {
     size_t i = 0;
     while (bytes[i++]) {}
     return i;
+}
+
+static bool starts_with(const uint8_t *bytes, size_t len, const char *str) {
+    if (len < strlen(str)) return false;
+    return memcmp((char *)bytes, str, strlen(str)) == 0;
+}
+
+static ssize_t strcpy_until(
+    const uint8_t *bytes,
+    size_t bytes_len,
+    const char *ends_with,
+    uint8_t *output,
+    size_t output_len
+) {
+    size_t len = strlen(ends_with);
+    ssize_t index = 0;
+
+    while(bytes_len - index >= len && output_len - index >= 1) {
+        if (starts_with(bytes + index, bytes_len - index, ends_with)) {
+            output[index + 1] = 0;
+            return index + len;
+        }
+
+        output[index] = bytes[index];
+
+        index++;
+    }
+
+    return -1;
 }
 
 static void deserialization_state_push(uint32_t *current_state, enum DataType type) {

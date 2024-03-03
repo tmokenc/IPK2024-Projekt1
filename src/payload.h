@@ -20,11 +20,11 @@
 
 // Define data types for payload components
 typedef uint16_t MessageID;
-typedef char Username[USERNAME_LEN + 1];
-typedef char ChannelID[CHANNEL_ID_LEN + 1];
-typedef char Secret[SECRET_LEN + 1];
-typedef char DisplayName[DISPLAY_NAME_LEN + 1];
-typedef char MessageContent[MESSAGE_CONTENT_LEN + 1];
+typedef uint8_t Username[USERNAME_LEN + 1];
+typedef uint8_t ChannelID[CHANNEL_ID_LEN + 1];
+typedef uint8_t Secret[SECRET_LEN + 1];
+typedef uint8_t DisplayName[DISPLAY_NAME_LEN + 1];
+typedef uint8_t MessageContent[MESSAGE_CONTENT_LEN + 1];
 
 typedef enum {
     PayloadType_Confirm = 0x00,
