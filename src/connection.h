@@ -41,6 +41,7 @@ typedef Payload (*ReceiveFunc)(Connection *connection);
 /**
  * @brief Function pointer type for disconnecting from the server.
  * @param connection Pointer to the Connection structure representing the connection.
+ * @note this function does not have to close the socket
  */
 typedef void (*DisconnectFunc)(Connection *connection);
 
