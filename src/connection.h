@@ -1,55 +1,75 @@
+/**
+ * @file connection.h
+ * @author Le Duy Nguyen, xnguye27, VUT FIT
+ * @date 03/03/2024
+ * @brief This module provides data structures and functions to interact with the server using the IPK2024 protocol.
+ */
+
 #ifndef CONNECTION_H
 #define CONNECTION_H
 
-#include "string.h"
 #include "args.h"
+#include "payload.h"
 #include <stdint.h>
+#include <sys/socket.h>
 
-#define USERNAME_LEN 20
-#define CHANNEL_ID_LEN 20
-#define SECRET_LEN 128
-#define DISPLAY_NAME_LEN 20
-#define MESSAGE_CONTENT_LEN 1400
+/**
+ * @brief Structure representing a connection to the server.
+ */
+typedef struct Connection Connection;
 
-typedef uint16_t MessageID;
-typedef char Username[USERNAME_LEN + 1];
-typedef char ChannelID[CHANNEL_ID_LEN + 1];
-typedef char Secret[SECRET_LEN + 1];
-typedef char DisplayName[DISPLAY_NAME_LEN + 1];
-typedef char MessageContent[MESSAGE_CONTENT_LEN + 1];
+/**
+ * @brief Function pointer type for connecting to the server.
+ * @param connection Pointer to the Connection structure representing the connection.
+ */
+typedef void (*ConnectFunc)(Connection *connection);
 
-struct Connection;
+/**
+ * @brief Function pointer type for sending a payload to the server.
+ * @param connection Pointer to the Connection structure representing the connection.
+ * @param payload The payload to send.
+ */
+typedef void (*SendFunc)(Connection *connection, Payload payload);
 
-typedef void (*ErrFunc)(struct Connection *);
-typedef void (*ConfirmFunc)(struct Connection *);
-typedef void (*ReplyFunc)(struct Connection *, bool, MessageContent);
-typedef void (*AuthFunc)(struct Connection *, Username, DisplayName, Secret);
-typedef void (*JoinFunc)(struct Connection *, ChannelID, DisplayName);
-typedef void (*MsgFunc)(struct Connection *, DisplayName, MessageContent);
-typedef void (*ByeFunc)(struct Connection *);
+/**
+ * @brief Function pointer type for receiving a payload from the server.
+ * @param connection Pointer to the Connection structure representing the connection.
+ * @return The received payload.
+ */
+typedef Payload (*ReceiveFunc)(Connection *connection);
 
-typedef String (*ReceiveFunc)(struct Connection *);
-typedef int (*ConnectFunc)(char *, uint16_t);
-typedef void (*DisconnectFunc)(struct Connection *);
+/**
+ * @brief Function pointer type for disconnecting from the server.
+ * @param connection Pointer to the Connection structure representing the connection.
+ */
+typedef void (*DisconnectFunc)(Connection *connection);
 
-typedef struct Connection {
-    int sockfd;
+/**
+ * @brief Structure representing a connection to the server.
+ */
+struct Connection {
+    Args args; /**< Application arguments. */
 
-    AuthFunc auth;
-    JoinFunc join;
-    ReplyFunc reply;
-    ConfirmFunc confirm;
-    MsgFunc msg;
-    ErrFunc err;
-    ByeFunc bye;
+    int sockfd; /**< Socket file descriptor for the connection. */
+    struct addrinfo *address_info; /**< Info about host address. */
 
-    ConnectFunc connect;
-    ReceiveFunc receive;
-    DisconnectFunc disconnect;
-} Connection;
+    ConnectFunc connect; /**< Function pointer for connecting to the server. */
+    SendFunc send; /**< Function pointer for sending data to the server. */
+    ReceiveFunc receive; /**< Function pointer for receiving data from the server. */
+    DisconnectFunc disconnect; /**< Function pointer for disconnecting from the server. */
+};
 
-Connection connection_init(Args);
+/**
+ * @brief Initialize a Connection object with the given arguments.
+ * @param args Arguments containing connection information.
+ * @return Initialized Connection object.
+ */
+Connection connection_init(Args args);
 
-void connection_destroy(Connection *);
+/**
+ * @brief Close a Connection object.
+ * @param connection Pointer to the Connection object to destroy.
+ */
+void connection_close(Connection *connection);
 
 #endif
