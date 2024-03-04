@@ -1,5 +1,6 @@
 PROJ=ipk24chat-client
 SRC_DIR=src
+DOC_DIR=doc
 BUILD_DIR=build
 
 CC=gcc
@@ -10,6 +11,8 @@ SRCS=$(wildcard $(SRC_DIR)/*.c)
 OBJS=$(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/%.o,$(SRCS))
 DEPS=$(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/%.d,$(SRCS))
 
+DOCS=$(wildcard $(DOC_DIR)/*)
+
 $(PROJ): $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $^
 
@@ -17,7 +20,7 @@ test: build/args.o build/error.o build/payload.o build/bytes.o
 	$(CC) $(CFLAGS) -o build/test test/main.c $^ && \
 	./build/test -v
 
-doc:
+doc: $(DOCS) doc/refs.bib
 	typst c doc/documentation.typ documentation.pdf
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
