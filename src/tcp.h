@@ -37,4 +37,20 @@ Payload tcp_receive(Connection *connection);
  */
 void tcp_disconnect(Connection *connection);
 
+/**
+ * @brief Get the next timeout for the poll function to wait
+ * @param connection Pointer to the Connection object representing the UDP connection.
+ * @return The timeout, -1 if not needed
+ * @note this function will always return -1 since TCP connection does not need confirm on application layer
+ */
+int tcp_next_timeout(Connection *connection);
+
+/// Serialize payload into bytes to be sent to the server
+/// Exported for testing purpose
+void tcp_serialize(Payload *payload, Bytes *output);
+
+/// Deserialize the incoming bytes into payload 
+/// Exported for testing purpose
+Payload tcp_deserialize(uint8_t *bytes, size_t len);
+
 #endif

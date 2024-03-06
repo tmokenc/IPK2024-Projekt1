@@ -9,7 +9,6 @@
 #define UDP_H
 
 #include "connection.h"
-#include <stdint.h>
 
 /**
  * @brief Establish a UDP connection.
@@ -36,5 +35,20 @@ Payload udp_receive(Connection *connection);
  * @param connection Pointer to the Connection object representing the UDP connection.
  */
 void udp_disconnect(Connection *connection);
+
+/**
+ * @brief Get the next timeout for the poll function to wait
+ * @param connection Pointer to the Connection object representing the UDP connection.
+ * @return the timeout, -1 if not needed
+ */
+int udp_next_timeout(Connection *connection);
+
+/// Serialize payload into bytes to be sent to the server
+/// Exported for testing purpose
+void udp_serialize(Payload *payload, Bytes *output);
+
+/// Deserialize the incoming bytes into payload 
+/// Exported for testing purpose
+Payload udp_deserialize(uint8_t *bytes, size_t len);
 
 #endif

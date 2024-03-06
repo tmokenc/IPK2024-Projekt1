@@ -1,33 +1,29 @@
+#include "../lib/greatest.h"
+#include "../src/payload.h"
+#include "../src/bytes.h"
+#include <string.h>
 
-#include "greatest.h"
+Payload PAYLOAD;
+Bytes BUFFER;
 
 SUITE(payload);
 
 TEST new(void) {
-    SKIPm("TODO");
-}
+    PAYLOAD = payload_new(PayloadType_Bye, NULL);
+    ASSERT_EQ(PAYLOAD.type, PayloadType_Bye);
+    ASSERT_EQ(PAYLOAD.id, 0);
 
-TEST serialize_tcp(void) {
-    SKIPm("TODO");
-}
+    PAYLOAD = payload_new(PayloadType_Auth, NULL);
+    ASSERT_EQ(PAYLOAD.type, PayloadType_Auth);
+    ASSERT_EQ(PAYLOAD.id, 1);
 
-TEST deserialize_tcp(void) {
-    SKIPm("TODO");
-}
+    PAYLOAD = payload_new(PayloadType_Confirm, NULL);
+    ASSERT_EQ(PAYLOAD.type, PayloadType_Confirm);
+    ASSERT_EQ(PAYLOAD.id, 2);
 
-TEST serialize_udp(void) {
-    SKIPm("TODO");
-}
-
-TEST deserialize_udp(void) {
-    SKIPm("TODO");
+    PASS();
 }
 
 GREATEST_SUITE(payload) {
     RUN_TEST(new);
-    RUN_TEST(serialize_tcp);
-    RUN_TEST(deserialize_tcp);
-    RUN_TEST(serialize_udp);
-    RUN_TEST(deserialize_udp);
-
 }

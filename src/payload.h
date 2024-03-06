@@ -79,13 +79,6 @@ typedef struct {
     MessageID id;          /**< MessageID as in IPK2024 specification */
 } Payload;
 
-typedef struct {
-    uint32_t current_progress; /**< Current progress of deserialization, 0 means it has been fully deserialized */
-    Payload payload;           /**< Current payload */
-    Bytes leftover;            /**< Leftover bytes for next payload */
-    bool got_header;           /**< If the header has been deserialized */
-} PayloadDeserialization;
-
 /**
  * @brief Create a new payload with the specified type and data.
  * @param type The type of the payload.
@@ -95,24 +88,5 @@ typedef struct {
  *       The ID will start from 0 and is incremented each time this function is called
  */
 Payload payload_new(PayloadType type, PayloadData *data);
-
-/**
- * @brief Serialize a payload into bytes for transmission.
- * @param payload The payload to serialize.
- * @param mode The mode of transmission (TCP/UDP).
- * @return The serialized payload as bytes.
- */
-Bytes payload_serialize(Payload *payload, Mode mode);
-
-/**
- * @brief Deserialize a sequence of bytes into a `Payload`.
- * @param buf The buffer containing the bytes to deserialize.
- * @param len The length of the buffer.
- * @param mode The mode (TCP/UDP) for representing data.
- * @param result Pointer to the previous (or fresh new) `PayloadDeserialization` structure.
- * @note if the result->current_progress is 0 after calling this function, 
- *       it means the payload is ready to use.
- */
-void payload_deserialize(const uint8_t *buf, size_t len, Mode mode, PayloadDeserialization *result);
 
 #endif
