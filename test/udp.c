@@ -1,4 +1,4 @@
-#include "../lib/greatest.h"
+#include "greatest.h"
 #include "../src//error.h"
 #include "../src/payload.h"
 #include "../src/bytes.h"

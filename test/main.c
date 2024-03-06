@@ -1,4 +1,4 @@
-#include "../lib/greatest.h"
+#include "greatest.h"
 
 #include "error.c"
 #include "args.c"
