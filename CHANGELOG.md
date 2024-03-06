@@ -1,0 +1,32 @@
+# TODO
+- [x] Argument Parsing
+- [ ] Connection
+    - [ ] TCP
+        - [x] Connect
+        - [x] Send
+        - [x] Receive
+        - [ ] Disconnect
+        - [ ] Serialize payload
+        - [ ] Deserialize payload
+    - [ ] UDP
+        - [x] Connect
+        - [ ] Send
+        - [ ] Receive
+        - [ ] Disconnect
+        - [ ] Serialize payload
+        - [ ] Deserialize payload
+- [ ] Client
+    - [ ] Main loops
+    - [ ] Commands
+        - [ ] auth
+        - [ ] join
+        - [ ] rename
+        - [ ] help
+- [ ] Testing
+    - [x] Args
+    - [x] Bytes
+    - [x] Payload
+    - [x] TCP
+    - [ ] UDP
+
+# Limitation
