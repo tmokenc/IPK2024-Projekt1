@@ -16,6 +16,7 @@ static void tcp_setup(void *arg) {
 
 static void tcp_tear_down(void *arg) {
     bytes_free(&TCP_BUFFER);
+    memset(&TCP_PAYLOAD, 0, sizeof(Payload));
     (void)arg;
 }
 
@@ -39,7 +40,6 @@ TEST serialize_tcp_reply_ok(void) {
 TEST serialize_tcp_reply_nok(void) {
     char expect[] = "REPLY NOK IS Nijigasaki Liella\r\n";
 
-
     TCP_PAYLOAD.type = PayloadType_Reply;
     TCP_PAYLOAD.data.reply.result = false;
     memcpy(TCP_PAYLOAD.data.reply.message_content, "Nijigasaki Liella", strlen("Nijigasaki Liella"));
@@ -53,7 +53,7 @@ TEST serialize_tcp_reply_nok(void) {
 
 
 TEST serialize_tcp_auth(void) {
-    char expect[] = "AUTH tomoka AS tmokenc using MyUltimateSecret\r\n";
+    char expect[] = "AUTH tomoka AS tmokenc USING MyUltimateSecret\r\n";
 
     TCP_PAYLOAD.type = PayloadType_Auth;
     memcpy(TCP_PAYLOAD.data.auth.username, "tomoka", strlen("tomoka"));
@@ -133,7 +133,7 @@ TEST deserialize_tcp_reply_ok(void) {
 
     ASSERT_FALSE(get_error());
     ASSERT_EQ(TCP_PAYLOAD.type, PayloadType_Reply);
-    ASSERT_TRUE(TCP_PAYLOAD.data.reply.result);
+    ASSERT(TCP_PAYLOAD.data.reply.result);
     ASSERT_STR_EQ(TCP_PAYLOAD.data.reply.message_content, "Nijigasaki Liella");
     PASS();
 }
@@ -145,13 +145,13 @@ TEST deserialize_tcp_reply_nok(void) {
 
     ASSERT_FALSE(get_error());
     ASSERT_EQ(TCP_PAYLOAD.type, PayloadType_Reply);
-    ASSERT_TRUE(TCP_PAYLOAD.data.reply.result);
+    ASSERT_FALSE(TCP_PAYLOAD.data.reply.result);
     ASSERT_STR_EQ(TCP_PAYLOAD.data.reply.message_content, "Nijigasaki Liella");
     PASS();
 }
 
 TEST deserialize_tcp_auth(void) {
-    char data[] = "AUTH tomoka AS tmokenc using MyUltimateSecret\r\n";
+    char data[] = "AUTH tomoka AS tmokenc USING MyUltimateSecret\r\n";
 
     TCP_PAYLOAD = tcp_deserialize((void *)data, strlen(data));
 
@@ -185,8 +185,8 @@ TEST deserialize_tcp_msg(void) {
 
     ASSERT_FALSE(get_error());
     ASSERT_EQ(TCP_PAYLOAD.type, PayloadType_Message);
-    ASSERT_STR_EQ(TCP_PAYLOAD.data.err.display_name, "tmokenc");
-    ASSERT_STR_EQ(TCP_PAYLOAD.data.err.message_content, "Nijigasaki Liella");
+    ASSERT_STR_EQ(TCP_PAYLOAD.data.message.display_name, "tmokenc");
+    ASSERT_STR_EQ(TCP_PAYLOAD.data.message.message_content, "Nijigasaki Liella");
 
     PASS();
 }

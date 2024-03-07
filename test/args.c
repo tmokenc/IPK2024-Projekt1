@@ -55,7 +55,7 @@ TEST parse_help(void) {
 
     Args args = parse_args(argc, argv);
     ASSERT_FALSE(get_error());
-    ASSERT_TRUE(args.help);
+    ASSERT(args.help);
 
     PASS();
 }
@@ -65,7 +65,7 @@ TEST parse_help_with_additional_args(void) {
     char *argv[4] = { "test", "-h", "-m", "tcp" };
 
     parse_args(argc, argv);
-    ASSERT_TRUE(get_error());
+    ASSERT(get_error());
     PASS();
 }
 
@@ -74,7 +74,7 @@ TEST parse_missing_host(void) {
     char *argv[3] = { "test", "-m", "tcp" };
 
     parse_args(argc, argv);
-    ASSERT_TRUE(get_error());
+    ASSERT(get_error());
 
     PASS();
 }
@@ -84,7 +84,7 @@ TEST parse_missing_mode(void) {
     char *argv[3] = { "test", "-s", "test.com" };
 
     parse_args(argc, argv);
-    ASSERT_TRUE(get_error());
+    ASSERT(get_error());
 
     PASS();
 }
@@ -109,7 +109,7 @@ TEST parse_repeat_argument(void) {
     char *argv[7] = { "test", "-m", "udp", "-s", "test.com", "-m", "udp" };
 
     parse_args(argc, argv);
-    ASSERT_TRUE(get_error());
+    ASSERT(get_error());
     PASS();
 }
 
@@ -118,7 +118,7 @@ TEST parse_incorrect_order(void) {
     char *argv[5] = { "test", "-m", "udp", "test.com", "-s" };
 
     parse_args(argc, argv);
-    ASSERT_TRUE(get_error());
+    ASSERT(get_error());
     PASS();
 }
 

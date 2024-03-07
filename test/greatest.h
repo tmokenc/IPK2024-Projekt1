@@ -434,8 +434,6 @@ typedef enum greatest_test_res {
     GREATEST_ASSERT_OR_LONGJMPm(#COND, COND)
 #define GREATEST_ASSERT_FALSE(COND)                                     \
     GREATEST_ASSERT_FALSEm(#COND, COND)
-#define GREATEST_ASSERT_TRUE(COND)                                     \
-    GREATEST_ASSERT_FALSEm(#COND, !COND)
 #define GREATEST_ASSERT_EQ(EXP, GOT)                                    \
     GREATEST_ASSERT_EQm(#EXP " != " #GOT, EXP, GOT)
 #define GREATEST_ASSERT_NEQ(EXP, GOT)                                   \
@@ -1209,7 +1207,6 @@ greatest_run_info greatest_info
 #define ASSERT         GREATEST_ASSERT
 #define ASSERTm        GREATEST_ASSERTm
 #define ASSERT_FALSE   GREATEST_ASSERT_FALSE
-#define ASSERT_TRUE    GREATEST_ASSERT_TRUE
 #define ASSERT_EQ      GREATEST_ASSERT_EQ
 #define ASSERT_NEQ     GREATEST_ASSERT_NEQ
 #define ASSERT_GT      GREATEST_ASSERT_GT
