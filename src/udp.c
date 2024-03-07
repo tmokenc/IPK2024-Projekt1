@@ -8,7 +8,7 @@
 #include "udp.h"
 #include "error.h"
 #include <sys/time.h>
-#include "../lib/pqueue.h"
+#include "pqueue.h"
 #include <netdb.h>
 
 #define QUEUE_SIZE 10
@@ -35,13 +35,13 @@ static pqueue_pri_t current_timestamp_millis();
  * @return The number of bytes up to the first 0 (including that 0).
  * @note this function assumes that the byte will be valid and always contains the ending byte (byte 0)
  */
-static size_t byte_count(uint8_t *bytes);
+static size_t byte_count(const uint8_t *bytes);
 
-static size_t read_message_id(uint8_t *bytes, size_t len, uint16_t *output);
-static size_t read_id(uint8_t *bytes, size_t len, uint8_t *output, size_t limit);
-static size_t read_display_name(uint8_t *bytes, size_t len, uint8_t *output);
-static size_t read_message_content(uint8_t *bytes, size_t len, uint8_t *output);
-static size_t read_result(uint8_t *bytes, size_t len, uint8_t *output);
+static size_t read_message_id(const uint8_t *bytes, size_t len, uint16_t *output);
+static size_t read_id(const uint8_t *bytes, size_t len, uint8_t *output, size_t limit);
+static size_t read_display_name(const uint8_t *bytes, size_t len, uint8_t *output);
+static size_t read_message_content(const uint8_t *bytes, size_t len, uint8_t *output);
+static size_t read_result(const uint8_t *bytes, size_t len, uint8_t *output);
 
 
 typedef struct {
@@ -148,7 +148,7 @@ static void set_pos(void *a, size_t pos) {
     ((QueueNode *)a)->position = pos;
 }
 
-void udp_serialize(Payload *payload, Bytes *buffer) {
+void udp_serialize(const Payload *payload, Bytes *buffer) {
     uint8_t header[3];
 
     header[0] = payload->type;
@@ -198,7 +198,7 @@ void udp_serialize(Payload *payload, Bytes *buffer) {
 
 }
 
-Payload udp_deserialize(uint8_t *bytes, size_t len) {
+Payload udp_deserialize(const uint8_t *bytes, size_t len) {
     Payload payload = {0};
 
     if (len < 3) {
@@ -279,19 +279,19 @@ Payload udp_deserialize(uint8_t *bytes, size_t len) {
     return payload;
 }
 
-static size_t byte_count(uint8_t *bytes) {
+static size_t byte_count(const uint8_t *bytes) {
     size_t i = 0;
     while (bytes[i++]) {}
     return i;
 }
 
-static size_t read_message_id(uint8_t *bytes, size_t len, uint16_t *output) {
+static size_t read_message_id(const uint8_t *bytes, size_t len, uint16_t *output) {
     if (len < 2) return -1;
     *output = (bytes[0] << 8) | bytes[1 + 1];
     return 2;
 }
 
-static size_t read_id(uint8_t *bytes, size_t len, uint8_t *output, size_t limit) {
+static size_t read_id(const uint8_t *bytes, size_t len, uint8_t *output, size_t limit) {
     for (size_t i = 0; i < len && i < limit; i++) {
         char ch = bytes[i];
 
@@ -313,7 +313,7 @@ static size_t read_id(uint8_t *bytes, size_t len, uint8_t *output, size_t limit)
     return 0;
 }
 
-static size_t read_display_name(uint8_t *bytes, size_t len, uint8_t *output) {
+static size_t read_display_name(const uint8_t *bytes, size_t len, uint8_t *output) {
     for (size_t i = 0; i < len && i < DISPLAY_NAME_LEN + 1; i++) {
         char ch = bytes[i];
         if (ch < 0x20 || ch > 0x7E) break;
@@ -325,7 +325,7 @@ static size_t read_display_name(uint8_t *bytes, size_t len, uint8_t *output) {
     return 0;
 }
 
-static size_t read_message_content(uint8_t *bytes, size_t len, uint8_t *output) {
+static size_t read_message_content(const uint8_t *bytes, size_t len, uint8_t *output) {
     for (size_t i = 0; i < len && i < MESSAGE_CONTENT_LEN + 1; i++) {
         char ch = bytes[i];
         if (ch < 0x21 || ch > 0x7E) break;
@@ -338,7 +338,7 @@ static size_t read_message_content(uint8_t *bytes, size_t len, uint8_t *output) 
     return 0;
 }
 
-static size_t read_result(uint8_t *bytes, size_t len, uint8_t *output) {
+static size_t read_result(const uint8_t *bytes, size_t len, uint8_t *output) {
     if (!len) {
         set_error(Error_InvalidPayload);
         return 0;

@@ -45,10 +45,10 @@ int udp_next_timeout(Connection *connection);
 
 /// Serialize payload into bytes to be sent to the server
 /// Exported for testing purpose
-void udp_serialize(Payload *payload, Bytes *output);
+void udp_serialize(const Payload *payload, Bytes *output);
 
 /// Deserialize the incoming bytes into payload 
 /// Exported for testing purpose
-Payload udp_deserialize(uint8_t *bytes, size_t len);
+Payload udp_deserialize(const uint8_t *bytes, size_t len);
 
 #endif

@@ -47,10 +47,10 @@ int tcp_next_timeout(Connection *connection);
 
 /// Serialize payload into bytes to be sent to the server
 /// Exported for testing purpose
-void tcp_serialize(Payload *payload, Bytes *output);
+void tcp_serialize(const Payload *payload, Bytes *output);
 
 /// Deserialize the incoming bytes into payload 
 /// Exported for testing purpose
-Payload tcp_deserialize(uint8_t *bytes, size_t len);
+Payload tcp_deserialize(const uint8_t *bytes, size_t len);
 
 #endif
