@@ -10,15 +10,15 @@ Bytes TCP_BUFFER;
 
 static void _tcp_setup(void *arg) {
     TCP_BUFFER = bytes_new();
-    tcp_setup();
     set_error(Error_None);
+    tcp_setup();
     (void)arg;
 }
 
 static void tcp_tear_down(void *arg) {
     bytes_clear(&TCP_BUFFER);
-    tcp_destroy();
     memset(&TCP_PAYLOAD, 0, sizeof(Payload));
+    tcp_destroy();
     (void)arg;
 }
 
@@ -30,7 +30,7 @@ TEST tcp_serialize_reply_ok(void) {
 
     TCP_PAYLOAD.type = PayloadType_Reply;
     TCP_PAYLOAD.data.reply.result = true;
-    memcpy(TCP_PAYLOAD.data.reply.message_content, "Nijigasaki Liella", strlen("Nijigasaki Liella"));
+    strcpy((void *)TCP_PAYLOAD.data.reply.message_content, "Nijigasaki Liella");
 
     tcp_serialize(&TCP_PAYLOAD, &TCP_BUFFER);
 
@@ -44,7 +44,7 @@ TEST tcp_serialize_reply_nok(void) {
 
     TCP_PAYLOAD.type = PayloadType_Reply;
     TCP_PAYLOAD.data.reply.result = false;
-    memcpy(TCP_PAYLOAD.data.reply.message_content, "Nijigasaki Liella", strlen("Nijigasaki Liella"));
+    strcpy((void *)TCP_PAYLOAD.data.reply.message_content, "Nijigasaki Liella");
 
     tcp_serialize(&TCP_PAYLOAD, &TCP_BUFFER);
 
@@ -58,9 +58,9 @@ TEST tcp_serialize_auth(void) {
     char expect[] = "AUTH tomoka AS tmokenc USING MyUltimateSecret\r\n";
 
     TCP_PAYLOAD.type = PayloadType_Auth;
-    memcpy(TCP_PAYLOAD.data.auth.username, "tomoka", strlen("tomoka"));
-    memcpy(TCP_PAYLOAD.data.auth.display_name, "tmokenc", strlen("tmokenc"));
-    memcpy(TCP_PAYLOAD.data.auth.secret, "MyUltimateSecret", strlen("MyUltimateSecret"));
+    strcpy((void *)TCP_PAYLOAD.data.auth.username, "tomoka");
+    strcpy((void *)TCP_PAYLOAD.data.auth.display_name, "tmokenc");
+    strcpy((void *)TCP_PAYLOAD.data.auth.secret, "MyUltimateSecret");
 
     tcp_serialize(&TCP_PAYLOAD, &TCP_BUFFER);
 
@@ -73,8 +73,8 @@ TEST tcp_serialize_join(void) {
     char expect[] = "JOIN Vietnamese AS tmokenc\r\n";
 
     TCP_PAYLOAD.type = PayloadType_Join;
-    memcpy(TCP_PAYLOAD.data.join.channel_id, "Vietnamese", strlen("Vietnamese"));
-    memcpy(TCP_PAYLOAD.data.join.display_name, "tmokenc", strlen("tmokenc"));
+    strcpy((void *)TCP_PAYLOAD.data.join.channel_id, "Vietnamese");
+    strcpy((void *)TCP_PAYLOAD.data.join.display_name, "tmokenc");
 
     tcp_serialize(&TCP_PAYLOAD, &TCP_BUFFER);
 
@@ -88,8 +88,8 @@ TEST tcp_serialize_msg(void) {
     char expect[] = "MSG FROM tmokenc IS Nijigasaki Liella\r\n";
 
     TCP_PAYLOAD.type = PayloadType_Message;
-    memcpy(TCP_PAYLOAD.data.message.display_name, "tmokenc", strlen("tmokenc"));
-    memcpy(TCP_PAYLOAD.data.message.message_content, "Nijigasaki Liella", strlen("Nijigasaki Liella"));
+    strcpy((void *)TCP_PAYLOAD.data.message.display_name, "tmokenc");
+    strcpy((void *)TCP_PAYLOAD.data.message.message_content, "Nijigasaki Liella");
 
     tcp_serialize(&TCP_PAYLOAD, &TCP_BUFFER);
 
@@ -103,8 +103,8 @@ TEST tcp_serialize_err(void) {
     char expect[] = "ERR FROM tmokenc IS Nijigasaki Liella\r\n";
 
     TCP_PAYLOAD.type = PayloadType_Err;
-    memcpy(TCP_PAYLOAD.data.err.display_name, "tmokenc", strlen("tmokenc"));
-    memcpy(TCP_PAYLOAD.data.err.message_content, "Nijigasaki Liella", strlen("Nijigasaki Liella"));
+    strcpy((void *)TCP_PAYLOAD.data.err.display_name, "tmokenc");
+    strcpy((void *)TCP_PAYLOAD.data.err.message_content, "Nijigasaki Liella");
 
     tcp_serialize(&TCP_PAYLOAD, &TCP_BUFFER);
 
@@ -241,7 +241,7 @@ TEST tcp_deserialize_invalid_username(void) {
     // empty
     CHECK_CALL(tcp_deserialize_invalid_payload("empty", "AUTH AS tmokenc USING MyUltimateSecret\r\n"));
     // contains_invalid_character
-    CHECK_CALL(tcp_deserialize_invalid_payload("contains invalid character", "AUTH tom-oka AS tmokenc USING MyUltimateSecret\r\n"));
+    CHECK_CALL(tcp_deserialize_invalid_payload("contains invalid character", "AUTH tom\x05oka AS tmokenc USING MyUltimateSecret\r\n"));
     // oversized
     tcp_gen_oversized_buf("AUTH ", USERNAME_LEN, " AS tmokenc USING MyUltimateSecret\r\n");
     CHECK_CALL(tcp_deserialize_invalid_payload("oversized", TCP_BUFFER.data));
@@ -252,7 +252,7 @@ TEST tcp_deserialize_invalid_channel_id(void) {
     // empty
     CHECK_CALL(tcp_deserialize_invalid_payload("empty", "JOIN  AS tmokenc\r\n"));
     // contains_invalid_character
-    CHECK_CALL(tcp_deserialize_invalid_payload("contains invalid character", "JOIN Vietnamese-Czech AS tmokenc\r\n"));
+    CHECK_CALL(tcp_deserialize_invalid_payload("contains invalid character", "JOIN Vietnamese.Czech AS tmokenc\r\n"));
     // oversized
     tcp_gen_oversized_buf("JOIN ", CHANNEL_ID_LEN, " AS tmokenc\r\n");
     CHECK_CALL(tcp_deserialize_invalid_payload("oversized", TCP_BUFFER.data));
@@ -308,14 +308,14 @@ static enum greatest_test_res tcp_serialize_invalid_payload(char *msg) {
 
 TEST tcp_serialize_invalid_message_content(void) {
     TCP_PAYLOAD.type = PayloadType_Message;
-    memcpy(TCP_PAYLOAD.data.message.display_name, "tmokenc", strlen("tmokenc"));
+    strcpy((void *)TCP_PAYLOAD.data.message.display_name, "tmokenc");
 
     // empty
     memset(TCP_PAYLOAD.data.message.message_content, 0, MESSAGE_CONTENT_LEN + 1);
     CHECK_CALL(tcp_serialize_invalid_payload("empty"));
 
     // invalid character
-    memcpy(TCP_PAYLOAD.data.message.message_content, "Nijigasaki\x05Liella", strlen("Nijigasaki\x05Liella"));
+    strcpy((void *)TCP_PAYLOAD.data.message.message_content, "Nijigasaki\x05Liella");
     CHECK_CALL(tcp_serialize_invalid_payload("contains invalid character"));
 
     PASS();
@@ -323,15 +323,15 @@ TEST tcp_serialize_invalid_message_content(void) {
 
 TEST tcp_serialize_invalid_secret(void) {
     TCP_PAYLOAD.type = PayloadType_Auth;
-    memcpy(TCP_PAYLOAD.data.auth.username, "tomoka", strlen("tomoka"));
-    memcpy(TCP_PAYLOAD.data.auth.display_name, "tmokenc", strlen("tmokenc"));
+    strcpy((void *)TCP_PAYLOAD.data.auth.username, "tomoka");
+    strcpy((void *)TCP_PAYLOAD.data.auth.display_name, "tmokenc");
 
     // empty
     memset(TCP_PAYLOAD.data.auth.secret, 0, SECRET_LEN + 1);
     CHECK_CALL(tcp_serialize_invalid_payload("empty"));
 
     // invalid character
-    memcpy(TCP_PAYLOAD.data.auth.secret, "MyUltimateSecret\0x05", strlen("MyUltimateSecret\0x05"));
+    strcpy((void *)TCP_PAYLOAD.data.auth.secret, "MyUltimateSecret\0x05");
     CHECK_CALL(tcp_serialize_invalid_payload("contains invalid character"));
 
     PASS();
@@ -339,37 +339,37 @@ TEST tcp_serialize_invalid_secret(void) {
 
 TEST tcp_serialize_invalid_username(void) {
     TCP_PAYLOAD.type = PayloadType_Auth;
-    memcpy(TCP_PAYLOAD.data.auth.display_name, "tmokenc", strlen("tmokenc"));
-    memcpy(TCP_PAYLOAD.data.auth.secret, "MyUltimateSecret", strlen("MyUltimateSecret"));
+    strcpy((void *)TCP_PAYLOAD.data.auth.display_name, "tmokenc");
+    strcpy((void *)TCP_PAYLOAD.data.auth.secret, "MyUltimateSecret");
 
     memset(TCP_PAYLOAD.data.auth.username, 0, USERNAME_LEN + 1);
     CHECK_CALL(tcp_serialize_invalid_payload("empty"));
 
-    memcpy(TCP_PAYLOAD.data.auth.username, "tomo\x05ka", strlen("tomo\x05ka"));
+    strcpy((void *)TCP_PAYLOAD.data.auth.username, "tomo\x0ka");
     CHECK_CALL(tcp_serialize_invalid_payload("contains invalid character"));
     PASS();
 }
 
 TEST tcp_serialize_invalid_display_name(void) {
     TCP_PAYLOAD.type = PayloadType_Err;
-    memcpy(TCP_PAYLOAD.data.err.message_content, "Nijigasaki Liella", strlen("Nijigasaki Liella"));
+    strcpy((void *)TCP_PAYLOAD.data.err.message_content, "Nijigasaki Liella");
 
     memset(TCP_PAYLOAD.data.err.display_name, 0, DISPLAY_NAME_LEN + 1);
     CHECK_CALL(tcp_serialize_invalid_payload("empty"));
 
-    memcpy(TCP_PAYLOAD.data.err.display_name, "\x05tmokenc", strlen("\x05tmokenc"));
+    strcpy((void *)TCP_PAYLOAD.data.err.display_name, "\x05tmokenc");
     CHECK_CALL(tcp_serialize_invalid_payload("contains invalid character"));
     PASS();
 }
 
 TEST tcp_serialize_invalid_channel_id(void) {
     TCP_PAYLOAD.type = PayloadType_Join;
-    memcpy(TCP_PAYLOAD.data.join.display_name, "tmokenc", strlen("tmokenc"));
+    strcpy((void *)TCP_PAYLOAD.data.join.display_name, "tmokenc");
 
     memset(TCP_PAYLOAD.data.join.channel_id, 0, DISPLAY_NAME_LEN + 1);
     CHECK_CALL(tcp_serialize_invalid_payload("empty"));
 
-    memcpy(TCP_PAYLOAD.data.join.channel_id, "\x05Vietnamese", strlen("\x05Vietnamese"));
+    strcpy((void *)TCP_PAYLOAD.data.join.channel_id, "\x05Vietnamese");
     CHECK_CALL(tcp_serialize_invalid_payload("contains invalid character"));
     PASS();
 }
