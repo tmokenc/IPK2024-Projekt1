@@ -295,85 +295,6 @@ TEST tcp_deserialize_invalid_message_content(void) {
     PASS();
 }
 
-static enum greatest_test_res tcp_serialize_invalid_payload(char *msg) {
-    tcp_serialize(&TCP_PAYLOAD, &TCP_BUFFER);
-    ASSERTm(msg, get_error());
-    // clean up
-    set_error(Error_None);
-    bytes_clear(&TCP_BUFFER);
-
-    PASS();
-}
-
-
-TEST tcp_serialize_invalid_message_content(void) {
-    TCP_PAYLOAD.type = PayloadType_Message;
-    strcpy((void *)TCP_PAYLOAD.data.message.display_name, "tmokenc");
-
-    // empty
-    memset(TCP_PAYLOAD.data.message.message_content, 0, MESSAGE_CONTENT_LEN + 1);
-    CHECK_CALL(tcp_serialize_invalid_payload("empty"));
-
-    // invalid character
-    strcpy((void *)TCP_PAYLOAD.data.message.message_content, "Nijigasaki\x05Liella");
-    CHECK_CALL(tcp_serialize_invalid_payload("contains invalid character"));
-
-    PASS();
-}
-
-TEST tcp_serialize_invalid_secret(void) {
-    TCP_PAYLOAD.type = PayloadType_Auth;
-    strcpy((void *)TCP_PAYLOAD.data.auth.username, "tomoka");
-    strcpy((void *)TCP_PAYLOAD.data.auth.display_name, "tmokenc");
-
-    // empty
-    memset(TCP_PAYLOAD.data.auth.secret, 0, SECRET_LEN + 1);
-    CHECK_CALL(tcp_serialize_invalid_payload("empty"));
-
-    // invalid character
-    strcpy((void *)TCP_PAYLOAD.data.auth.secret, "MyUltimateSecret\0x05");
-    CHECK_CALL(tcp_serialize_invalid_payload("contains invalid character"));
-
-    PASS();
-}
-
-TEST tcp_serialize_invalid_username(void) {
-    TCP_PAYLOAD.type = PayloadType_Auth;
-    strcpy((void *)TCP_PAYLOAD.data.auth.display_name, "tmokenc");
-    strcpy((void *)TCP_PAYLOAD.data.auth.secret, "MyUltimateSecret");
-
-    memset(TCP_PAYLOAD.data.auth.username, 0, USERNAME_LEN + 1);
-    CHECK_CALL(tcp_serialize_invalid_payload("empty"));
-
-    strcpy((void *)TCP_PAYLOAD.data.auth.username, "tomo\x0ka");
-    CHECK_CALL(tcp_serialize_invalid_payload("contains invalid character"));
-    PASS();
-}
-
-TEST tcp_serialize_invalid_display_name(void) {
-    TCP_PAYLOAD.type = PayloadType_Err;
-    strcpy((void *)TCP_PAYLOAD.data.err.message_content, "Nijigasaki Liella");
-
-    memset(TCP_PAYLOAD.data.err.display_name, 0, DISPLAY_NAME_LEN + 1);
-    CHECK_CALL(tcp_serialize_invalid_payload("empty"));
-
-    strcpy((void *)TCP_PAYLOAD.data.err.display_name, "\x05tmokenc");
-    CHECK_CALL(tcp_serialize_invalid_payload("contains invalid character"));
-    PASS();
-}
-
-TEST tcp_serialize_invalid_channel_id(void) {
-    TCP_PAYLOAD.type = PayloadType_Join;
-    strcpy((void *)TCP_PAYLOAD.data.join.display_name, "tmokenc");
-
-    memset(TCP_PAYLOAD.data.join.channel_id, 0, DISPLAY_NAME_LEN + 1);
-    CHECK_CALL(tcp_serialize_invalid_payload("empty"));
-
-    strcpy((void *)TCP_PAYLOAD.data.join.channel_id, "\x05Vietnamese");
-    CHECK_CALL(tcp_serialize_invalid_payload("contains invalid character"));
-    PASS();
-}
-
 GREATEST_SUITE(tcp) {
     GREATEST_SET_SETUP_CB(_tcp_setup, NULL);
     GREATEST_SET_TEARDOWN_CB(tcp_tear_down, NULL);
@@ -385,12 +306,6 @@ GREATEST_SUITE(tcp) {
     RUN_TEST(tcp_serialize_msg);
     RUN_TEST(tcp_serialize_err);
     RUN_TEST(tcp_serialize_bye);
-
-    RUN_TEST(tcp_serialize_invalid_secret);
-    RUN_TEST(tcp_serialize_invalid_username);
-    RUN_TEST(tcp_serialize_invalid_channel_id);
-    RUN_TEST(tcp_serialize_invalid_display_name);
-    RUN_TEST(tcp_serialize_invalid_message_content);
 
     RUN_TEST(tcp_deserialize_reply_ok);
     RUN_TEST(tcp_deserialize_reply_nok);

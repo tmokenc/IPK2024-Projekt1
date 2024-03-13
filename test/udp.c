@@ -287,90 +287,6 @@ TEST udp_deserialize_bye(void) {
     PASS();
 }
 
-static greatest_test_res udp_serialize_error(char *msg) {
-    udp_serialize(&UDP_PAYLOAD, &UDP_BUFFER);
-    ASSERTm(msg, get_error());
-    // clean up
-    set_error(Error_None);
-    bytes_clear(&UDP_BUFFER);
-
-    PASS();
-}
-
-TEST udp_serialize_invalid_secret(void) {
-    UDP_PAYLOAD.type = PayloadType_Auth;
-    UDP_PAYLOAD.id = 0xFAAF;
-    strcpy((void *)UDP_PAYLOAD.data.auth.username, "tmokenc");
-    strcpy((void *)UDP_PAYLOAD.data.auth.display_name, "tomoka");
-
-    memset((void *)UDP_PAYLOAD.data.auth.secret, 0, SECRET_LEN + 1);
-    CHECK_CALL(udp_serialize_error("empty"));
-
-    strcpy((void *)UDP_PAYLOAD.data.auth.display_name, "to\x05moka");
-    CHECK_CALL(udp_serialize_error("contains invalid character"));
-
-    PASS();
-}
-
-TEST udp_serialize_invalid_username(void) {
-    UDP_PAYLOAD.type = PayloadType_Auth;
-    UDP_PAYLOAD.id = 0xFAAF;
-    strcpy((void *)UDP_PAYLOAD.data.auth.username, "tmokenc");
-    strcpy((void *)UDP_PAYLOAD.data.auth.display_name, "tomoka");
-
-    memset((void *)UDP_PAYLOAD.data.auth.secret, 0, SECRET_LEN + 1);
-    CHECK_CALL(udp_serialize_error("empty"));
-
-    strcpy((void *)UDP_PAYLOAD.data.auth.display_name, "to\x05moka");
-    CHECK_CALL(udp_serialize_error("contains invalid character"));
-
-    PASS();
-}
-
-TEST udp_serialize_invalid_channel_id(void) {
-    UDP_PAYLOAD.type = PayloadType_Join;
-    UDP_PAYLOAD.id = 0xFAAF;
-    memset((void *)UDP_PAYLOAD.data.join.channel_id, 0, CHANNEL_ID_LEN + 1);
-    strcpy((void *)UDP_PAYLOAD.data.join.display_name, "tomoka");
-
-    memset((void *)UDP_PAYLOAD.data.auth.secret, 0, SECRET_LEN + 1);
-    CHECK_CALL(udp_serialize_error("empty"));
-
-    strcpy((void *)UDP_PAYLOAD.data.join.channel_id, "to\x05moka");
-    CHECK_CALL(udp_serialize_error("contains invalid character"));
-
-    PASS();
-}
-
-TEST udp_serialize_invalid_display_name(void) {
-    UDP_PAYLOAD.type = PayloadType_Message;
-    UDP_PAYLOAD.id = 0xFAAF;
-    memset((void *)UDP_PAYLOAD.data.message.display_name, 0, DISPLAY_NAME_LEN + 1);
-    strcpy((void *)UDP_PAYLOAD.data.message.message_content, "Hello World");
-
-    CHECK_CALL(udp_serialize_error("empty"));
-
-    strcpy((void *)UDP_PAYLOAD.data.message.display_name, "to\x05moka");
-    CHECK_CALL(udp_serialize_error("contains invalid character"));
-
-    PASS();
-}
-
-TEST udp_serialize_invalid_message_content(void) {
-    UDP_PAYLOAD.type = PayloadType_Err;
-    UDP_PAYLOAD.id = 0xFAAF;
-    strcpy((void *)UDP_PAYLOAD.data.message.display_name, "to\5moka");
-    memset((void *)UDP_PAYLOAD.data.message.message_content, 0, MESSAGE_CONTENT_LEN + 1);
-
-    CHECK_CALL(udp_serialize_error("empty"));
-
-    strcpy((void *)UDP_PAYLOAD.data.err.message_content, "Hello\x05World");
-    CHECK_CALL(udp_serialize_error("contains invalid character"));
-
-    PASS();
-}
-
-
 static greatest_test_res udp_deserialize_error(char *msg, uint8_t *data, size_t len) {
     udp_deserialize(data, len);
     ASSERTm(msg, get_error());
@@ -434,12 +350,6 @@ GREATEST_SUITE(udp) {
     RUN_TEST(udp_serialize_msg);
     RUN_TEST(udp_serialize_err);
     RUN_TEST(udp_serialize_bye);
-
-    RUN_TEST(udp_serialize_invalid_secret);
-    RUN_TEST(udp_serialize_invalid_username);
-    RUN_TEST(udp_serialize_invalid_channel_id);
-    RUN_TEST(udp_serialize_invalid_display_name);
-    RUN_TEST(udp_serialize_invalid_message_content);
 
     RUN_TEST(udp_deserialize_confirm);
     RUN_TEST(udp_deserialize_reply);

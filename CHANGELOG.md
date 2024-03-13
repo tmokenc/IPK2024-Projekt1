@@ -6,14 +6,14 @@
         - [x] Send
         - [x] Receive
         - [ ] Disconnect
-        - [ ] Serialize payload
-        - [ ] Deserialize payload
+        - [x] Serialize payload
+        - [x] Deserialize payload
     - [ ] UDP
         - [x] Connect
         - [ ] Send
         - [ ] Receive
         - [ ] Disconnect
-        - [ ] Serialize payload
+        - [x] Serialize payload
         - [ ] Deserialize payload
 - [ ] Client
     - [ ] Main loops
