@@ -46,6 +46,13 @@ typedef Payload (*ReceiveFunc)(Connection *connection);
 typedef void (*DisconnectFunc)(Connection *connection);
 
 /**
+ * @brief Function pointer type to get the next timeout for the next poll
+ * @param connection Pointer to the Connection structure representing the connection.
+ * @return the timeout in millisecond (ms), -1 if not needed
+ */
+typedef int (*NextTimeoutFunc)(Connection *connection);
+
+/**
  * @brief Structure representing a connection to the server.
  */
 struct Connection {
@@ -58,6 +65,7 @@ struct Connection {
     SendFunc send; /**< Function pointer for sending data to the server. */
     ReceiveFunc receive; /**< Function pointer for receiving data from the server. */
     DisconnectFunc disconnect; /**< Function pointer for disconnecting from the server. */
+    NextTimeoutFunc next_timeout; /**< Function pointer for the next timeout to poll. */
 };
 
 /**

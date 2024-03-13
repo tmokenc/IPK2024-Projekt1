@@ -10,6 +10,7 @@ static void commands_setup(void *arg) {
 }
 static void commands_tear_down(void *arg) {
     command_clean_up();
+    set_error(Error_None);
     (void)arg;
 }
 
@@ -48,17 +49,12 @@ static enum greatest_test_res invalid_command(const void *input) {
 }
 
 TEST no_command() {
-    uint8_t data1[] = "Hello";
-    uint8_t data2[] = "   Hi there";
-    uint8_t data3[] = "Hmmmm    ";
-    uint8_t data4[] = "/authh not commands";
-    uint8_t data5[] = "//join not commands";
-
-    COMMAND_TEST(data1, CommandType_None, message, data1);
-    COMMAND_TEST(data2, CommandType_None, message, "Hi there");
-    COMMAND_TEST(data3, CommandType_None, message, "Hmmmm");
-    COMMAND_TEST(data4, CommandType_None, message, data4);
-    COMMAND_TEST(data5, CommandType_None, message, data5);
+    COMMAND_TEST("Hello", CommandType_None, message, "Hello");
+    COMMAND_TEST("    Hi there", CommandType_None, message, "Hi there");
+    COMMAND_TEST("Hmmmm", CommandType_None, message, "Hmmmm");
+    COMMAND_TEST("   both side   ", CommandType_None, message, "both side");
+    COMMAND_TEST("/authh is not commands", CommandType_None, message, "/authh is not commands");
+    COMMAND_TEST("//join notcommands", CommandType_None, message, "//join notcommands");
 
     PASS();
 }
@@ -80,7 +76,7 @@ TEST parse_auth() {
 }
 
 TEST parse_join() {
-    COMMAND_TEST("/join Testing", CommandType_Join, join.channel_id, "Tesing");
+    COMMAND_TEST("/join Testing", CommandType_Join, join.channel_id, "Testing");
     COMMAND_TEST("/join Test-ing", CommandType_Join, join.channel_id, "Test-ing");
 
     CHECK_CALL(invalid_command("/join test ing"));

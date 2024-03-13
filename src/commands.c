@@ -13,11 +13,8 @@
 #define TRIE_STARTS_AT 'a'
 #define TRIE_ARR_SIZE 26
 
-static int start_non_whitespace(const uint8_t *str);
-static int end_non_whitespace(const uint8_t *str);
 static int command_char_to_index(const uint8_t ch);
-
-static int strcpy_until_sp(uint8_t *dst, const uint8_t *src, int limit);
+static int command_prefix_length(CommandType type);
 
 Trie *COMMAND_TRIE;
 
@@ -47,39 +44,64 @@ void command_clean_up() {
 Command command_parse(const uint8_t *str) {
     Command cmd = {0};
 
-    int start = start_non_whitespace(str);
-    int end = end_non_whitespace(str);
-    int len = end - start;
+    Bytes buffer = bytes_new();
+    bytes_push_c_str(&buffer, (const char *)str);
+    bytes_trim(&buffer, ' ');
 
-    if (len <= 0) {
+    if (buffer.len <= 0) {
         set_error(Error_InvalidInput);
         return cmd;
     }
 
-    str += start;
+    const uint8_t *slice = bytes_get(&buffer);
 
-    int maybe_command = str[0] == '/' ? trie_match_prefix(COMMAND_TRIE, str + 1) : -1;
+    int maybe_command = *slice == '/' ? trie_match_prefix(COMMAND_TRIE, slice + 1) : -1;
     cmd.type = maybe_command <= 0 ? CommandType_None : maybe_command;
-    
+
+    int cmd_offset = command_prefix_length(cmd.type);
+
+    // set the bytes offset based of the command
+    if (str[cmd_offset] == ' ') {
+        bytes_skip_first_n(&buffer, cmd_offset + 1);
+    } else if (str[cmd_offset] == 0) {
+        bytes_skip_first_n(&buffer, cmd_offset);
+    } else {
+        cmd.type = CommandType_None;
+    }
+
+    int read = 0;
+
+    #define READ(select, buf) \
+        read = read_##buf(cmd.data.select.buf, &buffer); \
+        if (read <= 0) { \
+            set_error(Error_InvalidInput); \
+            return cmd; \
+        } \
+        bytes_skip_first_n(&buffer, read)
+
+    #define SKIP_SPACE() \
+        if (*bytes_get(&buffer) != ' ') { \
+            set_error(Error_InvalidInput); \
+            return cmd; \
+        } \
+        bytes_skip_first_n(&buffer, 1)
+
     switch (cmd.type) {
         case CommandType_None:
-            memcpy(cmd.data.message, str, len);
-            cmd.data.message[0] = 0;
+            memcpy(cmd.data.message, str, buffer.len);
+            cmd.data.message[buffer.len] = 0;
             break;
 
         case CommandType_Auth:
-            str += 6;
-            str += strcpy_until_sp(cmd.data.auth.username, str, USERNAME_LEN) + 1;
-            str += strcpy_until_sp(cmd.data.auth.secret, str, SECRET_LEN) + 1;
-            str += strcpy_until_sp(cmd.data.auth.display_name, str, DISPLAY_NAME_LEN);
+            READ(auth, username); SKIP_SPACE();
+            READ(auth, secret); SKIP_SPACE();
+            READ(auth, display_name);
             break;
         case CommandType_Join:
-            str += 6;
-            strcpy_until_sp(cmd.data.join.channel_id, str, CHANNEL_ID_LEN);
+            READ(join, channel_id);
             break;
         case CommandType_Rename:
-            str += 8;
-            strcpy_until_sp(cmd.data.rename.display_name, str, DISPLAY_NAME_LEN);
+            READ(rename, display_name);
             break;
 
         case CommandType_Help:
@@ -91,50 +113,24 @@ Command command_parse(const uint8_t *str) {
     return cmd;
 }
 
-static int start_non_whitespace(const uint8_t *str) {
-    int i = 0;
-
-    while (str[i] == ' ') {
-        i += 1;
+static int command_prefix_length(CommandType type) {
+    switch (type) {
+        case CommandType_None:
+            return 0;
+        case CommandType_Auth:
+        case CommandType_Join:
+        case CommandType_Help:
+            return 5;
+        case CommandType_Clear:
+            return 6;
+        case CommandType_Rename:
+            return 7;
     }
 
-    return i;
-}
-
-static int end_non_whitespace(const uint8_t *str) {
-    int len = strlen((void *)str);
-
-    if (!len) {
-        return 0;
-    }
-
-    int last_index = len - 1;
-
-    while (str[last_index] == ' ') {
-        last_index -= 1;
-    }
-
-    return last_index;
+    return 0;
 }
 
 static int command_char_to_index(const uint8_t ch) {
     if (ch < 'a' || ch > 'z') return -1;
     return ch - 'a';
-}
-
-static int strcpy_until_sp(uint8_t *dst, const uint8_t *src, int limit) {
-    int i = 0;
-
-    while (src[i] != ' ' && src[i] != 0) {
-        if (i + 1 > limit) {
-            return -1;
-        }
-
-        dst[i] = src[i];
-        i++;
-    }
-
-    dst[i + 1] = 0;
-
-    return 0;
 }

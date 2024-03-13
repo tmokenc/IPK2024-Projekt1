@@ -1,26 +1,30 @@
+/**
+ * @file input.c
+ * @author Le Duy Nguyen, xnguye27, VUT FIT
+ * @date 02/03/2024
+ * @brief Implementation of the input.h
+ */
+
 #include "input.h"
 #include "error.h"
 #include <stdio.h>
 
-String readLineStdin(int max_len) {
-    String str = string_new();
+int readLineStdin(uint8_t *bytes, size_t max_len) {
+    if (feof(stdin)) return EOF;
 
     int ch;
+    size_t index = 0;
 
     while ((ch = fgetc(stdin) != EOF) && ch != '\n') {
-        if (max_len != -1 && (int)str.len >= max_len) {
+        if (index >= (max_len - 1)) {
             set_error(Error_InvalidInput);
-            string_free(&str);
             break;
         }
 
-        string_push_char(&str, ch);
-
-        if (get_error()) {
-            string_free(&str);
-            break;
-        }
+        bytes[index++] = ch;
     }
 
-    return str;
+    bytes[index++] = 0;
+
+    return index;
 }

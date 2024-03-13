@@ -31,6 +31,11 @@ Args parse_args(int argc, char **argv) {
         return args;
     }
 
+    if (argc % 2 == 0 || argc < 5) {
+        set_error(Error_InvalidArgument);
+        return args;
+    }
+
     args.port = 4567;
     args.udp_timeout = 250;
     args.udp_retransmissions = 3;
@@ -41,11 +46,6 @@ Args parse_args(int argc, char **argv) {
     bool got_mode = false;
     bool got_timeout = false;
     bool got_udp_retransmissions = false;
-
-    if (argc != 7) {
-        set_error(Error_InvalidArgument);
-        return args;
-    }
 
     int idx = 1;
     
@@ -88,7 +88,7 @@ Args parse_args(int argc, char **argv) {
                 break;
             }
 
-            case 't': {
+            case 'm': {
                 if (got_mode) {
                     set_error(Error_DuplicatedArgument);
                     return args;

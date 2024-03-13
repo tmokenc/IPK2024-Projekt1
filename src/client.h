@@ -7,8 +7,6 @@
 #include <stdio.h>
 #include "connection.h"
 
-struct Client;
-
 typedef struct Client {
     Connection connection;
 } Client;
@@ -17,6 +15,6 @@ Client client_init(Args args);
 
 void client_start(Client *client);
 
-void shutdown(Client *client);
+void client_shutdown(Client *client);
 
 #endif

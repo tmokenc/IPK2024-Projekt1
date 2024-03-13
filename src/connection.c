@@ -28,6 +28,7 @@ Connection connection_init(Args args) {
             conn.send = udp_send;
             conn.receive = udp_receive;
             conn.disconnect = udp_disconnect;
+            conn.next_timeout = udp_next_timeout;
             break;
         case Mode_TCP:
             type = SOCK_STREAM;
@@ -35,6 +36,7 @@ Connection connection_init(Args args) {
             conn.send = tcp_send;
             conn.receive = tcp_receive;
             conn.disconnect = tcp_disconnect;
+            conn.next_timeout = tcp_next_timeout;
             break;
     }
 

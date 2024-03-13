@@ -10,41 +10,17 @@
 #include "error.h"
 #include <string.h>
 
-size_t SIZE_CHUNK = 10;
-
 Bytes bytes_new() {
-    Bytes res;
-    res.data = NULL;
-    res.capacity = 0;
-    res.len = 0;
+    Bytes res = {0};
     return res;
 }
 
-void bytes_free(Bytes *bytes) {
-    if (bytes->capacity) {
-        free(bytes->data);
-        bytes->data = NULL;
-        bytes->len = 0;
-        bytes->capacity = 0;
-    }
+void bytes_clear(Bytes *bytes) {
+    memset(bytes, 0, sizeof(Bytes));
 }
 
-void bytes_realloc(Bytes *bytes, ssize_t new_capacity) {
-    size_t capacity = new_capacity < 0 ? bytes->len : (size_t)new_capacity; 
-
-    uint8_t *tmp = realloc(bytes->data, sizeof(uint8_t) * capacity);
-
-    if (!tmp) {
-        set_error(Error_OutOfMemory);
-        return;
-    }
-
-    bytes->data = tmp;
-    bytes->capacity = capacity;
-
-    if (bytes->len > capacity) {
-        bytes->len = capacity;
-    }
+const uint8_t *bytes_get(const Bytes *bytes) {
+    return bytes->data + bytes->offset;
 }
 
 void bytes_push(Bytes *bytes, uint8_t byte) {
@@ -55,34 +31,47 @@ void bytes_push(Bytes *bytes, uint8_t byte) {
 
 void bytes_push_arr(Bytes *bytes, const uint8_t *arr, size_t len) {
     size_t new_len = bytes->len + len;
-    if (new_len >= bytes->capacity) {
-        bytes_realloc(bytes, bytes->capacity + SIZE_CHUNK);
-        if (get_error()) {
-            return;
-        }
+
+    if (new_len > BYTES_SIZE) {
+        set_error(Error_StackOverflow);
     }
 
     for (size_t i = 0; i < len; i++) {
-        bytes->data[bytes->len + i] = arr[i];
+        bytes->data[bytes->offset + bytes->len + i] = arr[i];
     }
 
     bytes->len = new_len;
 }
-
 
 void bytes_push_c_str(Bytes *bytes, const char *str) {
     size_t size = strlen(str);
     bytes_push_arr(bytes, (const uint8_t *)str, size);
 }
 
-void bytes_remove_first_n(Bytes *bytes, size_t n) {
-    if (bytes->len > n) {
+size_t bytes_trim(Bytes *bytes, uint8_t ch) {
+    size_t count = 0;
+
+    while (bytes->data[bytes->len + bytes->offset - 1] == ch) {
+        bytes->len -= 1;
+        count += 1;
+    }
+
+    bytes->data[bytes->offset + bytes->len] = 0;
+
+    while (bytes->data[bytes->offset] == ch) {
+        bytes->offset += 1;
+        count += 1;
+        bytes->len -= 1;
+    }
+
+    return count;
+}
+
+void bytes_skip_first_n(Bytes *bytes, size_t n) {
+    if (bytes->len < n) {
         n = bytes->len;
     }
 
-    for (size_t i = 0; i < (bytes->len - n); i++) {
-        bytes[i] = bytes[i + n];
-    }
-
+    bytes->offset += n;
     bytes->len -= n;
 }

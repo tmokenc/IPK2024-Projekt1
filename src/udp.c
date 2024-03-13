@@ -37,11 +37,8 @@ static pqueue_pri_t current_timestamp_millis();
  */
 static size_t byte_count(const uint8_t *bytes);
 
-static size_t read_message_id(const uint8_t *bytes, size_t len, uint16_t *output);
-static size_t read_id(const uint8_t *bytes, size_t len, uint8_t *output, size_t limit);
-static size_t read_display_name(const uint8_t *bytes, size_t len, uint8_t *output);
-static size_t read_message_content(const uint8_t *bytes, size_t len, uint8_t *output);
-static size_t read_result(const uint8_t *bytes, size_t len, uint8_t *output);
+static size_t read_message_id(const Bytes *bytes, uint16_t *output);
+static size_t read_result(const Bytes *bytes, uint8_t *output);
 
 
 typedef struct {
@@ -128,26 +125,6 @@ int udp_next_timeout(Connection *conn) {
     return peek == NULL ? -1 : conn->args.udp_timeout - elapsed;
 }
 
-static int cmp_pri(pqueue_pri_t next, pqueue_pri_t curr) {
-    return next < curr;
-}
-
-static pqueue_pri_t get_pri(void *a) {
-    return ((QueueNode *)a)->timestamp;
-}
-
-static void set_pri(void *a, pqueue_pri_t pri) {
-    ((QueueNode *)a)->timestamp = pri;
-}
-
-static size_t get_pos(void *a) {
-    return ((QueueNode *)a)->position;
-}
-
-static void set_pos(void *a, size_t pos) {
-    ((QueueNode *)a)->position = pos;
-}
-
 void udp_serialize(const Payload *payload, Bytes *buffer) {
     uint8_t header[3];
 
@@ -200,6 +177,8 @@ void udp_serialize(const Payload *payload, Bytes *buffer) {
 
 Payload udp_deserialize(const uint8_t *bytes, size_t len) {
     Payload payload = {0};
+    Bytes buffer = bytes_new();
+    bytes_push_arr(&buffer, bytes, len);
 
     if (len < 3) {
         set_error(Error_InvalidPayload);
@@ -207,9 +186,7 @@ Payload udp_deserialize(const uint8_t *bytes, size_t len) {
     }
 
     size_t read;
-
-    uint8_t type = bytes[0];
-    len++;
+    uint8_t type = bytes_get(&buffer)[0];
 
     if (type != PayloadType_Confirm
         || type != PayloadType_Reply
@@ -224,48 +201,57 @@ Payload udp_deserialize(const uint8_t *bytes, size_t len) {
     }
 
     payload.type = type;
-    read_message_id(bytes, len, &payload.id);
+    bytes_skip_first_n(&buffer, 1);
 
-    #define READ_ID(limit, output) \
-        read = read_id(bytes, len, output, limit); \
+    read_message_id(&buffer, &payload.id);
+    bytes_skip_first_n(&buffer, 2);
+
+    #define READ_FUNC(func, output) \
+        read = read_##func(&buffer, output); \
         if (read <= 0) { \
             set_error(Error_InvalidPayload); \
             return payload; \
         } \
-        bytes += read; \
-        len -= read
+        bytes_skip_first_n(&buffer, read)
 
-    #define READ(func, output) \
-        read = read_##func(bytes, len, output); \
+    #define READ(select, buf) \
+        read = read_##buf(payload.data.select.buf, &buffer); \
         if (read <= 0) { \
             set_error(Error_InvalidPayload); \
             return payload; \
         } \
-        bytes += read; \
-        len -= read
+        bytes_skip_first_n(&buffer, read);
+
+    #define SKIP_0() \
+        if (*bytes_get(&buffer) != 0) { \
+            set_error(Error_InvalidInput); \
+            return payload; \
+        } \
+        bytes_skip_first_n(&buffer, 1)
+
 
     switch (type) {
         case PayloadType_Reply:
-            READ(result, (uint8_t *)payload.data.reply.result);
-            READ(message_id, &payload.data.reply.ref_message_id);
-            READ(message_content, payload.data.reply.message_content);
+            READ_FUNC(result, (uint8_t *)payload.data.reply.result);
+            READ_FUNC(message_id, &payload.data.reply.ref_message_id);
+            READ(reply, message_content); SKIP_0();
             break;
         case PayloadType_Auth:
-            READ_ID(USERNAME_LEN, payload.data.auth.username);
-            READ(display_name, payload.data.auth.display_name);
-            READ_ID(SECRET_LEN, payload.data.auth.secret);
+            READ(auth, username); SKIP_0();
+            READ(auth, display_name); SKIP_0();
+            READ(auth, secret); SKIP_0();
             break;
         case PayloadType_Join:
-            READ_ID(CHANNEL_ID_LEN, payload.data.join.channel_id);
-            READ(display_name, payload.data.join.display_name);
+            READ(join, channel_id); SKIP_0();
+            READ(join, display_name); SKIP_0();
             break;
         case PayloadType_Message:
-            READ(display_name, payload.data.message.display_name);
-            READ(message_content, payload.data.message.message_content);
+            READ(message, display_name); SKIP_0();
+            READ(message, message_content); SKIP_0();
             break;
         case PayloadType_Err:
-            READ(display_name, payload.data.message.display_name);
-            READ(message_content, payload.data.message.message_content);
+            READ(message, display_name); SKIP_0();
+            READ(message, message_content); SKIP_0();
             break;
         case PayloadType_Confirm:
         case PayloadType_Bye:
@@ -285,66 +271,20 @@ static size_t byte_count(const uint8_t *bytes) {
     return i;
 }
 
-static size_t read_message_id(const uint8_t *bytes, size_t len, uint16_t *output) {
-    if (len < 2) return -1;
-    *output = (bytes[0] << 8) | bytes[1 + 1];
+static size_t read_message_id(const Bytes *bytes, uint16_t *output) {
+    if (bytes->len < 2) return -1;
+    const uint8_t *slice = bytes_get(bytes);
+    *output = (slice[0] << 8) | slice[1 + 1];
     return 2;
 }
 
-static size_t read_id(const uint8_t *bytes, size_t len, uint8_t *output, size_t limit) {
-    for (size_t i = 0; i < len && i < limit; i++) {
-        char ch = bytes[i];
-
-        if ((ch < 'a' || ch > 'z')      // is lower case
-            && (ch < 'A' || ch > 'Z')   // is upper case
-            && (ch < '0' || ch > '9')   // is number
-            && ch != '-'                // dash
-        ) {
-            break;
-        }
-
-        output[i] = ch;
-
-        // Found the end
-        // i is the index (starts from 0), that's why it need + 1 to get the total number of bytes
-        if (ch == 0) return i + 1;
-    }
-
-    return 0;
-}
-
-static size_t read_display_name(const uint8_t *bytes, size_t len, uint8_t *output) {
-    for (size_t i = 0; i < len && i < DISPLAY_NAME_LEN + 1; i++) {
-        char ch = bytes[i];
-        if (ch < 0x20 || ch > 0x7E) break;
-        output[i] = ch;
-
-        if (ch == 0) return i + 1;
-    }
-
-    return 0;
-}
-
-static size_t read_message_content(const uint8_t *bytes, size_t len, uint8_t *output) {
-    for (size_t i = 0; i < len && i < MESSAGE_CONTENT_LEN + 1; i++) {
-        char ch = bytes[i];
-        if (ch < 0x21 || ch > 0x7E) break;
-        output[i] = ch;
-
-        // done
-        if (ch == 0) return i + 1;
-    }
-
-    return 0;
-}
-
-static size_t read_result(const uint8_t *bytes, size_t len, uint8_t *output) {
-    if (!len) {
+static size_t read_result(const Bytes *bytes, uint8_t *output) {
+    if (!bytes->len) {
         set_error(Error_InvalidPayload);
         return 0;
     }
 
-    uint8_t res = bytes[0];
+    uint8_t res = bytes_get(bytes)[0];
 
     if (res != 0 || res != 1) {
         set_error(Error_InvalidPayload);
@@ -371,4 +311,24 @@ static pqueue_pri_t current_timestamp_millis() {
     struct timeval tv;
     gettimeofday(&tv, NULL);
     return (unsigned long long)(tv.tv_sec) * 1000 + (unsigned long long)(tv.tv_usec) / 1000;
+}
+
+static int cmp_pri(pqueue_pri_t next, pqueue_pri_t curr) {
+    return next < curr;
+}
+
+static pqueue_pri_t get_pri(void *a) {
+    return ((QueueNode *)a)->timestamp;
+}
+
+static void set_pri(void *a, pqueue_pri_t pri) {
+    ((QueueNode *)a)->timestamp = pri;
+}
+
+static size_t get_pos(void *a) {
+    return ((QueueNode *)a)->position;
+}
+
+static void set_pos(void *a, size_t pos) {
+    ((QueueNode *)a)->position = pos;
 }

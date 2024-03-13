@@ -2,8 +2,9 @@
 #define ERROR_H
 
 typedef enum {
-    None,
+    Error_None,
     Error_OutOfMemory,
+    Error_StackOverflow,
     Error_InvalidArgument,
     Error_DuplicatedArgument,
     Error_Socket,

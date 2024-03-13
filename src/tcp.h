@@ -45,6 +45,14 @@ void tcp_disconnect(Connection *connection);
  */
 int tcp_next_timeout(Connection *connection);
 
+/// Setup, this function is called automatically by the udp_connect
+/// Exporting this just for testing purpose
+void tcp_setup();
+
+/// Destroy the setup, this function is called automatically by the udp_disconnect
+/// Exporting this just for testing purpose
+void tcp_destroy();
+
 /// Serialize payload into bytes to be sent to the server
 /// Exported for testing purpose
 void tcp_serialize(const Payload *payload, Bytes *output);

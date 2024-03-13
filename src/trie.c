@@ -30,13 +30,12 @@ void trie_free(Trie *trie) {
         return;
     }
 
-    Trie **children = trie->children;
-    free(trie);
-
     for (int i = 0; i < TRIE_ARR_LEN; i++) {
         // Recursively free the Trie
-        trie_free(children[i]);
+        trie_free(trie->children[i]);
     }
+
+    free(trie);
 }
 
 void trie_insert(Trie *trie, const uint8_t *str, int value) {
@@ -62,7 +61,7 @@ void trie_insert(Trie *trie, const uint8_t *str, int value) {
 int trie_match_prefix(Trie *trie, const uint8_t *str) {
     // As for this project, the root trie is always valid, no need to check for its existence
     while (1) {
-        int index = trie->to_index(str[0]);
+        int index = trie->to_index(*str);
 
         // either it cannot turn into the index or the sub-trie not contains that
         if (index < 0 || !trie->children[index]) {

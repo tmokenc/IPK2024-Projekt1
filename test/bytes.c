@@ -1,4 +1,5 @@
 #include "greatest.h"
+#include <string.h>
 #include "../src/bytes.h"
 #include "../src/error.h"
 
@@ -11,7 +12,7 @@ static void bytes_setup(void *arg) {
 }
 
 static void bytes_tear_down(void *arg) {
-    bytes_free(&BYTES);
+    bytes_clear(&BYTES);
     (void)arg;
 }
 
@@ -21,40 +22,22 @@ TEST _bytes_new(void) {
     BYTES = bytes_new();
     ASSERT_FALSE(get_error());
     ASSERT_EQ(BYTES.len, 0);
-    ASSERT_EQ(BYTES.capacity, 0);
+    ASSERT_EQ(BYTES.offset, 0);
     PASS();
 }
 
-TEST _bytes_free(void) {
-    bytes_push(&BYTES, '1');
-    ASSERT_FALSE(get_error());
-    ASSERT_EQ(BYTES.len, 1);
+TEST _bytes_clear(void) {
+    bytes_push_c_str(&BYTES, "Blob of none sense");
 
-    bytes_free(&BYTES);
-    ASSERT_FALSE(get_error());
+    ASSERT_NEQ(BYTES.len, 0);
+
+    bytes_clear(&BYTES);
+
+    uint8_t ref_bytes[BYTES_SIZE] = {0};
+
+    ASSERT_MEM_EQ(BYTES.data, ref_bytes, BYTES_SIZE);
+    ASSERT_EQ(BYTES.offset, 0);
     ASSERT_EQ(BYTES.len, 0);
-    ASSERT_EQ(BYTES.capacity, 0);
-
-    PASS();
-}
-
-TEST _bytes_realloc(void) {
-    uint8_t arr[200] = {0};
-
-    bytes_push_arr(&BYTES, arr, 200);
-    ASSERT_EQ(BYTES.len, 200);
-
-    bytes_realloc(&BYTES, 400);
-    ASSERT_EQ(BYTES.len, 200);
-    ASSERT_EQ(BYTES.capacity, 400);
-
-    bytes_realloc(&BYTES, -1);
-    ASSERT_EQ(BYTES.len, 200);
-    ASSERT_EQ(BYTES.capacity, 200);
-
-    bytes_realloc(&BYTES, 100);
-    ASSERT_EQ(BYTES.len, 100);
-    ASSERT_EQ(BYTES.capacity, 100);
 
     PASS();
 }
@@ -121,19 +104,40 @@ TEST _bytes_push_c_str(void) {
     PASS();
 }
 
-TEST _bytes_remove_first_n(void) {
+TEST _bytes_trim(void) {
+    bytes_push_c_str(&BYTES, "    Hello World!  ");
+    size_t count = bytes_trim(&BYTES, ' ');
+
+    ASSERT_STR_EQ(BYTES.data, "    Hello World!");
+    ASSERT_STR_EQ(bytes_get(&BYTES), "Hello World!");
+    ASSERT_EQ(BYTES.len, strlen("Hello World!"));
+    ASSERT_EQ(count, 6);
+
+    count = bytes_trim(&BYTES, 'H');
+    ASSERT_EQ(count, 1);
+    ASSERT_STR_EQ(bytes_get(&BYTES), "ello World!");
+    ASSERT_STR_EQ(BYTES.data, "    Hello World!");
+    ASSERT_EQ(BYTES.len, strlen("ello World!"));
+
+    count = bytes_trim(&BYTES, 'W');
+    ASSERT_EQ(count, 0);
+    ASSERT_STR_EQ(BYTES.data, "    Hello World!");
+    ASSERT_STR_EQ(bytes_get(&BYTES), "ello World!");
+    ASSERT_EQ(BYTES.len, strlen("ello World!"));
+
+    PASS();
+}
+
+TEST _bytes_skip_first_n(void) {
     char str[] = "Hello WORLD";
     uint8_t arr[] = {'H', 'e', 'l', 'l', 'o', ' ', 'W', 'O', 'R', 'L', 'D' };
     bytes_push_c_str(&BYTES, str);
     ASSERT_EQ(BYTES.len, 11);
-    ASSERT_MEM_EQ(BYTES.data, arr, 11);
+    ASSERT_MEM_EQ(bytes_get(&BYTES), arr, 11);
 
-    size_t old_capacity = BYTES.capacity;
-
-    bytes_remove_first_n(&BYTES, 6);
+    bytes_skip_first_n(&BYTES, 6);
     ASSERT_EQ(BYTES.len, 5);
-    ASSERT_EQ(BYTES.capacity, old_capacity);
-    ASSERT_MEM_EQ(BYTES.data, arr + 6, 5);
+    ASSERT_MEM_EQ(bytes_get(&BYTES), arr + 6, 5);
 
     PASS();
 }
@@ -143,11 +147,11 @@ GREATEST_SUITE(bytes) {
     GREATEST_SET_TEARDOWN_CB(bytes_tear_down, NULL);
 
     RUN_TEST(_bytes_new);
-    RUN_TEST(_bytes_free);
-    RUN_TEST(_bytes_realloc);
+    RUN_TEST(_bytes_clear);
     RUN_TEST(_bytes_push);
     RUN_TEST(_bytes_push_arr);
     RUN_TEST(_bytes_push_c_str);
-    RUN_TEST(_bytes_remove_first_n);
+    RUN_TEST(_bytes_trim);
+    RUN_TEST(_bytes_skip_first_n);
 }
 

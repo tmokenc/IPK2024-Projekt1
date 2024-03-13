@@ -8,6 +8,7 @@
 #include "tcp.h"
 #include "error.h"
 #include "bytes.h"
+#include "trie.h"
 #include <string.h>
 #include <sys/socket.h>
 #include <netdb.h>
@@ -31,34 +32,40 @@
  * @param str Pointer to the null-terminated C string to compare.
  * @return true if the byte array starts with the given C string, false otherwise.
  */
-static bool starts_with(const uint8_t *bytes, size_t len, const char *str);
+static bool starts_with(const Bytes *bytes, const char *str);
 
-/**
- * @brief Copy bytes from a byte array until it meets the specified null-terminated C string.
- *
- * This function copies bytes from the byte array to the output buffer until it encounters
- * the specified null-terminated C string (excluding the string itself). It also appended 
- * the NULL terminator to the output so it can act as a C string.
- *
- * @param bytes Pointer to the byte array to copy from.
- * @param bytes_len Length of the byte array.
- * @param ends_with Pointer to the null-terminated C string indicating the end condition.
- * @param output Pointer to the output buffer where bytes will be copied.
- * @param output_len Length of the output buffer.
- * @return Number of bytes read from the byte array (including the end condition)
- *         -1 if it cannot find the end condition within the output_len
- */
-static ssize_t strcpy_until(
-    const uint8_t *bytes, 
-    size_t bytes_len, 
-    const char *ends_with, 
-    uint8_t *output, 
-    size_t output_len
-);
+static int tcp_prefix_index(uint8_t ch);
 
+Trie *TCP_TRIE;
 
+void tcp_setup() {
+    TCP_TRIE = trie_new(tcp_prefix_index);
+}
+
+void tcp_destroy() {
+    trie_free(TCP_TRIE);
+}
 
 void tcp_connect(Connection *conn) {
+    // setup the trie
+    tcp_setup();
+    if (get_error()) return;
+
+    char *prefixes[] = {"JOIN ", "AUTH ", "MSG FROM ", "ERR FROM ", "REPLY ", "BYE\r\n", NULL };
+
+    PayloadType payload_type[] = {
+        PayloadType_Join,
+        PayloadType_Auth,
+        PayloadType_Message,
+        PayloadType_Err,
+        PayloadType_Reply,
+        PayloadType_Bye,
+    };
+
+    for (int i = 0; prefixes[i]; i++) {
+        trie_insert(TCP_TRIE, (void *)prefixes[i], payload_type[i]);
+    }
+
     struct sockaddr *address = conn->address_info->ai_addr;
     socklen_t address_len = conn->address_info->ai_addrlen;
 
@@ -79,6 +86,8 @@ void tcp_send(Connection *conn, Payload payload) {
         set_error(Error_Connection);
         fprintf(stderr, "ERROR tcp: Cannot send packet to the server\n");
     }
+
+    bytes_clear(&bytes);
 }
 
 Payload tcp_receive(Connection *conn) {
@@ -102,6 +111,7 @@ void tcp_disconnect(Connection *conn) {
     payload.type = PayloadType_Bye;
     tcp_send(conn, payload);
     shutdown(conn->sockfd, SHUT_RDWR);
+    tcp_destroy();
 }
 
 int tcp_next_timeout(Connection *conn) {
@@ -109,7 +119,7 @@ int tcp_next_timeout(Connection *conn) {
     return -1;
 }
 
-void tcp_serialize(Payload *payload, Bytes *buffer) {
+void tcp_serialize(const Payload *payload, Bytes *buffer) {
     #define PUSH(str) \
         bytes_push_c_str(buffer, (char *)str); \
         if (get_error()) return
@@ -153,7 +163,7 @@ void tcp_serialize(Payload *payload, Bytes *buffer) {
             break;
 
         case PayloadType_Err:
-            PUSH("ERROR FROM ");
+            PUSH("ERR FROM ");
             PUSH(payload->data.message.display_name);
             PUSH(" IS ");
             PUSH(payload->data.message.message_content);
@@ -168,97 +178,93 @@ void tcp_serialize(Payload *payload, Bytes *buffer) {
 
 }
 
-Payload tcp_deserialize(uint8_t *bytes, size_t len) {
+Payload tcp_deserialize(const uint8_t *bytes, size_t len) {
     Payload payload;
     ssize_t read;
 
-    #define EXPECT_NEXT(buf, buf_len, ends_with) \
-        read = strcpy_until(bytes, len, ends_with, payload.data.buf, buf_len + 1); \
+    Bytes buffer = bytes_new();
+    bytes_push_arr(&buffer, bytes, len);
+
+    #define READ(select, buf) \
+        read = read_##buf(payload.data.select.buf, &buffer); \
         if (read <= 0) { \
             set_error(Error_InvalidPayload); \
             return payload; \
         } \
-        bytes += read; \
-        len -= read
+        bytes_skip_first_n(&buffer, read)
 
-    if (starts_with(bytes, len, "JOIN ")) {
-        bytes += strlen("JOIN ");
-        len -= strlen("JOIN ");
-        EXPECT_NEXT(join.channel_id, CHANNEL_ID_LEN, " AS ");
-        EXPECT_NEXT(join.display_name, DISPLAY_NAME_LEN, "\r\n");
-        payload.type = PayloadType_Join;
-    }
+    #define SKIP_STR(str) \
+        if (!starts_with(&buffer, str)) { \
+            set_error(Error_InvalidPayload); \
+            return payload; \
+        } \
+        bytes_skip_first_n(&buffer, strlen(str))
 
-    if (starts_with(bytes, len, "AUTH ")) {
-        bytes += strlen("AUTH ");
-        len -= strlen("AUTH ");
-        EXPECT_NEXT(auth.username, USERNAME_LEN, " AS ");
-        EXPECT_NEXT(auth.display_name, DISPLAY_NAME_LEN, " USING ");
-        EXPECT_NEXT(auth.secret, SECRET_LEN, "\r\n");
-        payload.type = PayloadType_Auth;
-    }
+    int maybe_payload_type = trie_match_prefix(TCP_TRIE, bytes_get(&buffer));
 
-    if (starts_with(bytes, len, "MSG FROM ")) {
-        bytes += strlen("MSG FROM ");
-        len -= strlen("MSG FROM ");
-        EXPECT_NEXT(message.display_name, DISPLAY_NAME_LEN, " IS ");
-        EXPECT_NEXT(message.message_content, MESSAGE_CONTENT_LEN, "\r\n");
-        payload.type = PayloadType_Message;
-    }
+    switch (maybe_payload_type) {
+        case PayloadType_Join:
+            bytes_skip_first_n(&buffer, strlen("JOIN "));
+            READ(join, channel_id); SKIP_STR(" AS ");
+            READ(join, display_name); SKIP_STR("\r\n");
+            break;
 
-    if (starts_with(bytes, len, "ERROR FROM ")) {
-        bytes += strlen("ERROR FROM ");
-        len -= strlen("ERROR FROM ");
-        EXPECT_NEXT(err.display_name, DISPLAY_NAME_LEN, " IS ");
-        EXPECT_NEXT(err.message_content, MESSAGE_CONTENT_LEN, "\r\n");
-        payload.type = PayloadType_Err;
-    }
+        case PayloadType_Auth:
+            bytes_skip_first_n(&buffer, strlen("AUTH "));
+            READ(auth, username); SKIP_STR(" AS ");
+            READ(auth, display_name); SKIP_STR(" USING ");
+            READ(auth, secret); SKIP_STR("\r\n");
+            break;
 
-    if (starts_with(bytes, len, "ERROR FROM ")) {
-        bytes += strlen("ERROR FROM ");
-        len -= strlen("ERROR FROM ");
-        EXPECT_NEXT(err.message_content, MESSAGE_CONTENT_LEN, "\r\n");
-        payload.type = PayloadType_Reply;
-    }
+        case PayloadType_Reply:
+            bytes_skip_first_n(&buffer, strlen("REPLY "));
+            bool result = true;
+            if (bytes[0] == 'N') {
+                result = false;
+                bytes_skip_first_n(&buffer, 1);
+            }
 
-    if (starts_with(bytes, len, "BYE\r\n")) {
-        bytes += strlen("BYE\r\n");
-        len -= strlen("BYE\r\n");
-        payload.type = PayloadType_Bye;
+            SKIP_STR("OK IS ");
+            READ(reply, message_content); SKIP_STR("\r\n");
+            payload.data.reply.result = result;
+            break;
+
+        case PayloadType_Message:
+            bytes_skip_first_n(&buffer, strlen("MSG FROM "));
+            READ(message, display_name); SKIP_STR(" IS ");
+            READ(message, message_content); SKIP_STR("\r\n");
+            break;
+
+        case PayloadType_Err:
+            bytes_skip_first_n(&buffer, strlen("ERR FROM "));
+            READ(err, display_name); SKIP_STR(" IS ");
+            READ(err, message_content); SKIP_STR("\r\n");
+            break;
+
+        case PayloadType_Bye:
+            bytes_skip_first_n(&buffer, strlen("BYE\r\n"));
+            break;
+
+        default:
+            set_error(Error_InvalidPayload);
+            return payload;
     }
 
     /// It should be fully deserialized with nothing left
-    if (len != 0) set_error(Error_InvalidPayload);
+    if (buffer.len != 0) set_error(Error_InvalidPayload);
 
+    payload.type = maybe_payload_type;
     return payload;
 }
 
 
-static bool starts_with(const uint8_t *bytes, size_t len, const char *str) {
-    if (len < strlen(str)) return false;
-    return memcmp((char *)bytes, str, strlen(str)) == 0;
+static bool starts_with(const Bytes *bytes, const char *str) {
+    if (bytes->len < strlen(str)) return false;
+    return memcmp(bytes_get(bytes), str, strlen(str)) == 0;
 }
 
-static ssize_t strcpy_until(
-    const uint8_t *bytes,
-    size_t bytes_len,
-    const char *ends_with,
-    uint8_t *output,
-    size_t output_len
-) {
-    size_t len = strlen(ends_with);
-    ssize_t index = 0;
-
-    while(bytes_len - index >= len && output_len - index >= 1) {
-        if (starts_with(bytes + index, bytes_len - index, ends_with)) {
-            output[index + 1] = 0;
-            return index + len;
-        }
-
-        output[index] = bytes[index];
-
-        index++;
-    }
-
-    return -1;
+static int tcp_prefix_index(uint8_t ch) {
+    if (ch == ' ') return 26;
+    if (ch < 'A' || ch > 'Z') return -1;
+    return ch - 'A';
 }

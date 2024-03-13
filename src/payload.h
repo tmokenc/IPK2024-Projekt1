@@ -26,6 +26,7 @@ typedef uint8_t Secret[SECRET_LEN + 1];
 typedef uint8_t DisplayName[DISPLAY_NAME_LEN + 1];
 typedef uint8_t MessageContent[MESSAGE_CONTENT_LEN + 1];
 
+
 typedef enum {
     PayloadType_Confirm = 0x00,
     PayloadType_Reply = 0x01,
@@ -88,5 +89,15 @@ typedef struct {
  *       The ID will start from 0 and is incremented each time this function is called
  */
 Payload payload_new(PayloadType type, PayloadData *data);
+
+/**
+ * These are a set of function to effectively read data of a bytes src into the dest
+ * return -1 if it's overflow, otherwise it returns the number of bytes read
+ */
+ssize_t read_username(Username dest, const Bytes *src);
+ssize_t read_channel_id(ChannelID dest, const Bytes *src);
+ssize_t read_secret(Secret dest, const Bytes *src);
+ssize_t read_display_name(DisplayName dest, const Bytes *src);
+ssize_t read_message_content(MessageContent dest, const Bytes *src);
 
 #endif
