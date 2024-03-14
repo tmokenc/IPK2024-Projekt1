@@ -298,23 +298,92 @@ static greatest_test_res udp_deserialize_error(char *msg, uint8_t *data, size_t 
 }
 
 TEST udp_deserialize_invalid_secret(void) {
+    uint8_t empty[] = {
+        0x02, 
+        0xFA, 0xAF, 
+        't', 'm', 'o', 'k', 'e', 'n', 'c', 0,
+        't', 'o', 'm', 'o', 'k', 'a', 0,
+    };
+
+    CHECK_CALL(udp_deserialize_error("empty", empty, sizeof(empty)));
     
-    SKIP();
+    uint8_t invalid[] = {
+        0x02, 
+        0xFA, 0xAF, 
+        't', 'm', 'o', 'k', 'e', 'n', 'c', 0,
+        't', 'o', 'm', 'o', 'k', 'a', 0,
+        19, 0
+    };
+
+    CHECK_CALL(udp_deserialize_error("contains invalid characters", invalid, sizeof(invalid)));
+
+    PASS();
 }
 
 TEST udp_deserialize_invalid_username(void) {
+    uint8_t empty[] = {
+        0x02, 
+        0xFA, 0xAF, 
+        0,
+        't', 'o', 'm', 'o', 'k', 'a', 0,
+        'H', 'e', 'l', 'l', 'o', 0
+    };
 
-    SKIP();
+    CHECK_CALL(udp_deserialize_error("empty", empty, sizeof(empty)));
+
+    uint8_t invalid[] = {
+        0x02, 
+        0xFA, 0xAF, 
+        2, 0,
+        't', 'o', 'm', 'o', 'k', 'a', 0,
+        'H', 'e', 'l', 'l', 'o', 0
+    };
+
+    CHECK_CALL(udp_deserialize_error("contains invalid characters", invalid, sizeof(invalid)));
+    PASS();
 }
 
 TEST udp_deserialize_invalid_channel_id(void) {
+    uint8_t empty[] = {
+        0x03, 
+        0xFA, 0xAF, 
+        't', 'o', 'm', 'o', 'k', 'a', 0,
+    };
 
-    SKIP();
+    CHECK_CALL(udp_deserialize_error("empty", empty, sizeof(empty)));
+
+    uint8_t invalid[] = {
+        0x03, 
+        0xFA, 0xAF, 
+        1, 0,
+        't', 'o', 'm', 'o', 'k', 'a', 0,
+    };
+
+    CHECK_CALL(udp_deserialize_error("contains invalid characters", invalid, sizeof(invalid)));
+
+    PASS();
 }
 
 TEST udp_deserialize_invalid_display_name(void) {
+    uint8_t empty_display_name[] = {
+        0xFE, 
+        0xFA, 0xAF, 
+        0,
+        't', 'o', 'm', 'o', 'k', 'a', 0,
+    };
 
-    SKIP();
+    CHECK_CALL(udp_deserialize_error("empty", empty_display_name, sizeof(empty_display_name)));
+
+    uint8_t invalid_chars[] = {
+        0xFE,
+        0xFA, 0xAF,
+        0x19, 0,
+        't', 'o', 'm', 'o', 'k', 'a', 0,
+    };
+
+    CHECK_CALL(udp_deserialize_error("contains invalid characters", invalid_chars, sizeof(invalid_chars)));
+
+    PASS();
 }
 
 TEST udp_deserialize_invalid_message_content(void) {
@@ -325,7 +394,7 @@ TEST udp_deserialize_invalid_message_content(void) {
         0,
     };
 
-    udp_deserialize_error("empty", empty_content, sizeof(empty_content));
+    CHECK_CALL(udp_deserialize_error("empty", empty_content, sizeof(empty_content)));
 
     uint8_t invalid_chars[] = {
         0xFE, 
@@ -334,7 +403,7 @@ TEST udp_deserialize_invalid_message_content(void) {
         0x19, 0,
     };
 
-    udp_deserialize_error("contains invalid characters", invalid_chars, sizeof(invalid_chars));
+    CHECK_CALL(udp_deserialize_error("contains invalid characters", invalid_chars, sizeof(invalid_chars)));
 
     PASS();
 }

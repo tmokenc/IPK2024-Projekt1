@@ -1,5 +1,5 @@
 # TODO
-- [x] Argument Parsing
+- [x] Argument Parser
 - [ ] Connection
     - [ ] TCP
         - [x] Connect
@@ -14,19 +14,22 @@
         - [ ] Receive
         - [ ] Disconnect
         - [x] Serialize payload
-        - [ ] Deserialize payload
+        - [X] Deserialize payload
 - [ ] Client
     - [ ] Main loops
     - [ ] Commands
-        - [ ] auth
-        - [ ] join
-        - [ ] rename
-        - [ ] help
+        - [x] Command Parser
+        - [ ] Auth
+        - [ ] Join
+        - [ ] Rename
+        - [ ] Help
 - [ ] Testing
     - [x] Args
     - [x] Bytes
+    - [x] Trie
+    - [x] Commands
     - [x] Payload
     - [x] TCP
-    - [ ] UDP
+    - [X] UDP
 
 # Limitation
