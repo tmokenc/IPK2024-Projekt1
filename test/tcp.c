@@ -27,12 +27,11 @@ SUITE(tcp);
 TEST tcp_serialize_reply_ok(void) {
     char expect[] = "REPLY OK IS Nijigasaki Liella\r\n";
 
-
     TCP_PAYLOAD.type = PayloadType_Reply;
     TCP_PAYLOAD.data.reply.result = true;
     strcpy((void *)TCP_PAYLOAD.data.reply.message_content, "Nijigasaki Liella");
 
-    tcp_serialize(&TCP_PAYLOAD, &TCP_BUFFER);
+    TCP_BUFFER = tcp_serialize(&TCP_PAYLOAD);
 
     ASSERT_FALSE(get_error());
     ASSERT_MEM_EQ(expect, TCP_BUFFER.data, TCP_BUFFER.len);
@@ -46,7 +45,7 @@ TEST tcp_serialize_reply_nok(void) {
     TCP_PAYLOAD.data.reply.result = false;
     strcpy((void *)TCP_PAYLOAD.data.reply.message_content, "Nijigasaki Liella");
 
-    tcp_serialize(&TCP_PAYLOAD, &TCP_BUFFER);
+    TCP_BUFFER = tcp_serialize(&TCP_PAYLOAD);
 
     ASSERT_FALSE(get_error());
     ASSERT_MEM_EQ(expect, TCP_BUFFER.data, TCP_BUFFER.len);
@@ -62,7 +61,7 @@ TEST tcp_serialize_auth(void) {
     strcpy((void *)TCP_PAYLOAD.data.auth.display_name, "tmokenc");
     strcpy((void *)TCP_PAYLOAD.data.auth.secret, "MyUltimateSecret");
 
-    tcp_serialize(&TCP_PAYLOAD, &TCP_BUFFER);
+    TCP_BUFFER = tcp_serialize(&TCP_PAYLOAD);
 
     ASSERT_FALSE(get_error());
     ASSERT_MEM_EQ(expect, TCP_BUFFER.data, TCP_BUFFER.len);
@@ -76,7 +75,7 @@ TEST tcp_serialize_join(void) {
     strcpy((void *)TCP_PAYLOAD.data.join.channel_id, "Vietnamese");
     strcpy((void *)TCP_PAYLOAD.data.join.display_name, "tmokenc");
 
-    tcp_serialize(&TCP_PAYLOAD, &TCP_BUFFER);
+    TCP_BUFFER = tcp_serialize(&TCP_PAYLOAD);
 
     ASSERT_FALSE(get_error());
     ASSERT_MEM_EQ(expect, TCP_BUFFER.data, TCP_BUFFER.len);
@@ -91,7 +90,7 @@ TEST tcp_serialize_msg(void) {
     strcpy((void *)TCP_PAYLOAD.data.message.display_name, "tmokenc");
     strcpy((void *)TCP_PAYLOAD.data.message.message_content, "Nijigasaki Liella");
 
-    tcp_serialize(&TCP_PAYLOAD, &TCP_BUFFER);
+    TCP_BUFFER = tcp_serialize(&TCP_PAYLOAD);
 
     ASSERT_FALSE(get_error());
     ASSERT_MEM_EQ(expect, TCP_BUFFER.data, TCP_BUFFER.len);
@@ -106,7 +105,7 @@ TEST tcp_serialize_err(void) {
     strcpy((void *)TCP_PAYLOAD.data.err.display_name, "tmokenc");
     strcpy((void *)TCP_PAYLOAD.data.err.message_content, "Nijigasaki Liella");
 
-    tcp_serialize(&TCP_PAYLOAD, &TCP_BUFFER);
+    TCP_BUFFER = tcp_serialize(&TCP_PAYLOAD);
 
     ASSERT_FALSE(get_error());
     ASSERT_MEM_EQ(expect, TCP_BUFFER.data, TCP_BUFFER.len);
@@ -119,7 +118,7 @@ TEST tcp_serialize_bye(void) {
     char expect[] = "BYE\r\n";
     TCP_PAYLOAD.type = PayloadType_Bye;
 
-    tcp_serialize(&TCP_PAYLOAD, &TCP_BUFFER);
+    TCP_BUFFER = tcp_serialize(&TCP_PAYLOAD);
 
     ASSERT_FALSE(get_error());
     ASSERT_EQ(TCP_BUFFER.len, 5);
@@ -129,9 +128,9 @@ TEST tcp_serialize_bye(void) {
 }
 
 TEST tcp_deserialize_reply_ok(void) {
-    char data[] = "REPLY OK IS Nijigasaki Liella\r\n";
+    bytes_push_c_str(&TCP_BUFFER, "REPLY OK IS Nijigasaki Liella\r\n");
 
-    TCP_PAYLOAD = tcp_deserialize((void *)data, strlen(data));
+    TCP_PAYLOAD = tcp_deserialize(TCP_BUFFER);
 
     ASSERT_FALSE(get_error());
     ASSERT_EQ(TCP_PAYLOAD.type, PayloadType_Reply);
@@ -141,9 +140,9 @@ TEST tcp_deserialize_reply_ok(void) {
 }
 
 TEST tcp_deserialize_reply_nok(void) {
-    char data[] = "REPLY NOK IS Nijigasaki Liella\r\n";
+    bytes_push_c_str(&TCP_BUFFER, "REPLY NOK IS Nijigasaki Liella\r\n");
 
-    TCP_PAYLOAD = tcp_deserialize((void *)data, strlen(data));
+    TCP_PAYLOAD = tcp_deserialize(TCP_BUFFER);
 
     ASSERT_FALSE(get_error());
     ASSERT_EQ(TCP_PAYLOAD.type, PayloadType_Reply);
@@ -153,9 +152,9 @@ TEST tcp_deserialize_reply_nok(void) {
 }
 
 TEST tcp_deserialize_auth(void) {
-    char data[] = "AUTH tomoka AS tmokenc USING MyUltimateSecret\r\n";
+    bytes_push_c_str(&TCP_BUFFER, "AUTH tomoka AS tmokenc USING MyUltimateSecret\r\n");
 
-    TCP_PAYLOAD = tcp_deserialize((void *)data, strlen(data));
+    TCP_PAYLOAD = tcp_deserialize(TCP_BUFFER);
 
     ASSERT_FALSE(get_error());
     ASSERT_EQ(TCP_PAYLOAD.type, PayloadType_Auth);
@@ -167,9 +166,9 @@ TEST tcp_deserialize_auth(void) {
 }
 
 TEST tcp_deserialize_join(void) {
-    char data[] = "JOIN Vietnamese AS tmokenc\r\n";
+    bytes_push_c_str(&TCP_BUFFER, "JOIN Vietnamese AS tmokenc\r\n");
 
-    TCP_PAYLOAD = tcp_deserialize((void *)data, strlen(data));
+    TCP_PAYLOAD = tcp_deserialize(TCP_BUFFER);
 
     ASSERT_FALSE(get_error());
     ASSERT_EQ(TCP_PAYLOAD.type, PayloadType_Join);
@@ -181,9 +180,9 @@ TEST tcp_deserialize_join(void) {
 
 
 TEST tcp_deserialize_msg(void) {
-    char data[] = "MSG FROM tmokenc IS Nijigasaki Liella\r\n";
+    bytes_push_c_str(&TCP_BUFFER, "MSG FROM tmokenc IS Nijigasaki Liella\r\n");
 
-    TCP_PAYLOAD = tcp_deserialize((void *)data, strlen(data));
+    TCP_PAYLOAD = tcp_deserialize(TCP_BUFFER);
 
     ASSERT_FALSE(get_error());
     ASSERT_EQ(TCP_PAYLOAD.type, PayloadType_Message);
@@ -194,9 +193,9 @@ TEST tcp_deserialize_msg(void) {
 }
 
 TEST tcp_deserialize_err(void) {
-    char data[] = "ERR FROM tmokenc IS Nijigasaki Liella\r\n";
+    bytes_push_c_str(&TCP_BUFFER, "ERR FROM tmokenc IS Nijigasaki Liella\r\n");
 
-    TCP_PAYLOAD = tcp_deserialize((void *)data, strlen(data));
+    TCP_PAYLOAD = tcp_deserialize(TCP_BUFFER);
 
     ASSERT_FALSE(get_error());
     ASSERT_EQ(TCP_PAYLOAD.type, PayloadType_Err);
@@ -207,9 +206,9 @@ TEST tcp_deserialize_err(void) {
 }
 
 TEST tcp_deserialize_bye(void) {
-    char data[] = "BYE\r\n";
+    bytes_push_c_str(&TCP_BUFFER, "BYE\r\n");
 
-    TCP_PAYLOAD = tcp_deserialize((void *)data, 5);
+    TCP_PAYLOAD = tcp_deserialize(TCP_BUFFER);
 
     ASSERT_FALSE(get_error());
     ASSERT_EQ(TCP_PAYLOAD.type, PayloadType_Bye);
@@ -218,7 +217,9 @@ TEST tcp_deserialize_bye(void) {
 }
 
 static enum greatest_test_res tcp_deserialize_invalid_payload(char *msg, void *data) {
-    tcp_deserialize(data, strlen(data));
+    Bytes tmp = bytes_new();
+    bytes_push_c_str(&tmp, data);
+    tcp_deserialize(tmp);
     ASSERTm(msg, get_error());
     // clean up
     set_error(Error_None);
@@ -290,7 +291,7 @@ TEST tcp_deserialize_invalid_message_content(void) {
     // contains_invalid_character
     CHECK_CALL(tcp_deserialize_invalid_payload("contains invalid character", "ERR FROM invalid\x05 IS Nijigasaki Liella\r\n"));
     // oversized
-    tcp_gen_oversized_buf("MSG FROM tmokenc IS ", MESSAGE_CONTENT_LEN, "\r\n");
+    tcp_gen_oversized_buf("MSG FROM t IS ", MESSAGE_CONTENT_LEN, "\r\n");
     CHECK_CALL(tcp_deserialize_invalid_payload("oversized", TCP_BUFFER.data));
     PASS();
 }

@@ -78,10 +78,7 @@ void tcp_connect(Connection *conn) {
 }
 
 void tcp_send(Connection *conn, Payload payload) {
-    // to not allocate new Bytes each time this function is called
-    static Bytes bytes;
-
-    tcp_serialize(&payload, &bytes);
+    Bytes bytes = tcp_serialize(&payload);
     if (get_error()) return;
 
     if (send(conn->sockfd, bytes.data, bytes.len, MSG_DONTWAIT) < 0) {
@@ -93,16 +90,17 @@ void tcp_send(Connection *conn, Payload payload) {
 }
 
 Payload tcp_receive(Connection *conn) {
-    uint8_t buffer[BUFFER_SIZE];
     Payload payload;
+    Bytes buffer = bytes_new();
 
-    ssize_t len = recv(conn->sockfd, buffer, BUFFER_SIZE, MSG_DONTWAIT);
+    ssize_t len = recv(conn->sockfd, buffer.data, BYTES_SIZE, MSG_DONTWAIT);
 
     if (len < 0) {
         set_error(Error_Connection);
         fprintf(stderr, "ERROR tcp: Cannot receive packet from the server\n");
     } else {
-        payload = tcp_deserialize(buffer, len);
+        buffer.len = len;
+        payload = tcp_deserialize(buffer);
     }
 
     return payload;
@@ -121,21 +119,22 @@ int tcp_next_timeout(Connection *conn) {
     return -1;
 }
 
-void tcp_serialize(const Payload *payload, Bytes *buffer) {
+Bytes tcp_serialize(const Payload *payload) {
     // Don't have to validate the input since it has been validated in command parsing state
+    Bytes buffer = bytes_new();
     
     #define PUSH(str) \
         if (strlen((void *)str) == 0) { \
             set_error(Error_InvalidPayload); \
-            return; \
+            return buffer; \
         } \
-        bytes_push_c_str(buffer, (char *)str); \
-        if (get_error()) return
+        bytes_push_c_str(&buffer, (char *)str); \
+        if (get_error()) return buffer
 
     switch (payload->type) {
         case PayloadType_Confirm:
             set_error(Error_InvalidPayload);
-            return;
+            return buffer;
 
         case PayloadType_Auth:
             PUSH("AUTH ");
@@ -151,8 +150,7 @@ void tcp_serialize(const Payload *payload, Bytes *buffer) {
             if (!payload->data.reply.result) {
                 PUSH("N");
             }
-            PUSH("OK");
-            PUSH(" IS ");
+            PUSH("OK IS ");
             PUSH(payload->data.reply.message_content);
             break;
 
@@ -184,14 +182,12 @@ void tcp_serialize(const Payload *payload, Bytes *buffer) {
 
     PUSH("\r\n");
 
+    return buffer;
 }
 
-Payload tcp_deserialize(const uint8_t *bytes, size_t len) {
+Payload tcp_deserialize(Bytes buffer) {
     Payload payload;
     ssize_t read;
-
-    Bytes buffer = bytes_new();
-    bytes_push_arr(&buffer, bytes, len);
 
     #define READ(select, buf) \
         read = read_##buf(payload.data.select.buf, &buffer); \
@@ -213,15 +209,20 @@ Payload tcp_deserialize(const uint8_t *bytes, size_t len) {
     switch (maybe_payload_type) {
         case PayloadType_Join:
             bytes_skip_first_n(&buffer, strlen("JOIN "));
-            READ(join, channel_id); SKIP_STR(" AS ");
-            READ(join, display_name); SKIP_STR("\r\n");
+            READ(join, channel_id); 
+            SKIP_STR(" AS ");
+            READ(join, display_name); 
+            SKIP_STR("\r\n");
             break;
 
         case PayloadType_Auth:
             bytes_skip_first_n(&buffer, strlen("AUTH "));
-            READ(auth, username); SKIP_STR(" AS ");
-            READ(auth, display_name); SKIP_STR(" USING ");
-            READ(auth, secret); SKIP_STR("\r\n");
+            READ(auth, username); 
+            SKIP_STR(" AS ");
+            READ(auth, display_name); 
+            SKIP_STR(" USING ");
+            READ(auth, secret); 
+            SKIP_STR("\r\n");
             break;
 
         case PayloadType_Reply:
@@ -233,20 +234,25 @@ Payload tcp_deserialize(const uint8_t *bytes, size_t len) {
             }
 
             SKIP_STR("OK IS ");
-            READ(reply, message_content); SKIP_STR("\r\n");
+            READ(reply, message_content); 
+            SKIP_STR("\r\n");
             payload.data.reply.result = result;
             break;
 
         case PayloadType_Message:
             bytes_skip_first_n(&buffer, strlen("MSG FROM "));
-            READ(message, display_name); SKIP_STR(" IS ");
-            READ(message, message_content); SKIP_STR("\r\n");
+            READ(message, display_name); 
+            SKIP_STR(" IS ");
+            READ(message, message_content); 
+            SKIP_STR("\r\n");
             break;
 
         case PayloadType_Err:
             bytes_skip_first_n(&buffer, strlen("ERR FROM "));
-            READ(err, display_name); SKIP_STR(" IS ");
-            READ(err, message_content); SKIP_STR("\r\n");
+            READ(err, display_name); 
+            SKIP_STR(" IS ");
+            READ(err, message_content); 
+            SKIP_STR("\r\n");
             break;
 
         case PayloadType_Bye:

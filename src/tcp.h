@@ -55,10 +55,10 @@ void tcp_destroy();
 
 /// Serialize payload into bytes to be sent to the server
 /// Exported for testing purpose
-void tcp_serialize(const Payload *payload, Bytes *output);
+Bytes tcp_serialize(const Payload *payload);
 
 /// Deserialize the incoming bytes into payload 
 /// Exported for testing purpose
-Payload tcp_deserialize(const uint8_t *bytes, size_t len);
+Payload tcp_deserialize(Bytes bytes);
 
 #endif

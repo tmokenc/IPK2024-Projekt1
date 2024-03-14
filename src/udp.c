@@ -116,20 +116,21 @@ int udp_next_timeout(Connection *conn) {
     return peek == NULL ? -1 : conn->args.udp_timeout - elapsed;
 }
 
-void udp_serialize(const Payload *payload, Bytes *buffer) {
+Bytes udp_serialize(const Payload *payload) {
+    Bytes buffer = bytes_new();
     uint8_t header[3];
 
     header[0] = payload->type;
     header[1] = payload->id >> 8;
     header[2] = payload->id & 0xFF;
 
-    bytes_push_arr(buffer, header, 3);
-    if (get_error()) return;
+    bytes_push_arr(&buffer, header, 3);
+    if (get_error()) return buffer;
 
     #define PUSH_BYTES(bytes) \
-        bytes_push_c_str(buffer, (void *)bytes); \
-        bytes_push(buffer, 0); \
-        if (get_error()) return
+        bytes_push_c_str(&buffer, (void *)bytes); \
+        bytes_push(&buffer, 0); \
+        if (get_error()) return buffer
 
     switch (payload->type) {
         case PayloadType_Bye:
@@ -137,9 +138,9 @@ void udp_serialize(const Payload *payload, Bytes *buffer) {
             break;
 
         case PayloadType_Reply:
-            bytes_push(buffer, payload->data.reply.result);
-            bytes_push(buffer, payload->data.reply.ref_message_id >> 8);
-            bytes_push(buffer, payload->data.reply.ref_message_id & 0xFF);
+            bytes_push(&buffer, payload->data.reply.result);
+            bytes_push(&buffer, payload->data.reply.ref_message_id >> 8);
+            bytes_push(&buffer, payload->data.reply.ref_message_id & 0xFF);
             PUSH_BYTES((uint8_t *)payload->data.reply.message_content);
             break;
 
@@ -165,14 +166,13 @@ void udp_serialize(const Payload *payload, Bytes *buffer) {
             break;
     }
 
+    return buffer;
 }
 
-Payload udp_deserialize(const uint8_t *bytes, size_t len) {
+Payload udp_deserialize(Bytes buffer) {
     Payload payload = {0};
-    Bytes buffer = bytes_new();
-    bytes_push_arr(&buffer, bytes, len);
 
-    if (len < 3) {
+    if (buffer.len < 3) {
         set_error(Error_InvalidPayload);
         return payload;
     }

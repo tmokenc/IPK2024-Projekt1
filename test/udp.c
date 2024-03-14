@@ -40,7 +40,7 @@ SUITE(udp);
 
 static enum greatest_test_res udp_serialize_test(uint8_t *expect, size_t len) {
     bytes_clear(&UDP_BUFFER);
-    udp_serialize(&UDP_PAYLOAD, &UDP_BUFFER);
+    UDP_BUFFER = udp_serialize(&UDP_PAYLOAD);
     ASSERT_FALSE(get_error());
     ASSERT_EQ(UDP_BUFFER.len, len);
     ASSERT_MEM_EQ(UDP_BUFFER.data, expect, len);
@@ -161,8 +161,9 @@ TEST udp_serialize_bye(void) {
  
 TEST udp_deserialize_confirm(void) {
     uint8_t data[3] = {0x00, 0xFA, 0xAF};
+    bytes_push_arr(&UDP_BUFFER, data, sizeof(data));
 
-    UDP_PAYLOAD = udp_deserialize(data, sizeof(data));
+    UDP_PAYLOAD = udp_deserialize(UDP_BUFFER);
 
     ASSERT_FALSE(get_error());
     ASSERT_EQ(UDP_PAYLOAD.type, PayloadType_Confirm);
@@ -173,8 +174,9 @@ TEST udp_deserialize_confirm(void) {
 
 TEST udp_deserialize_reply(void) {
     uint8_t data[] = {0x01, 0xFA, 0xAF, 0x01, 0xAF, 0xFA, 'H', 'e', 'l', 'l', 'o', 0};
+    bytes_push_arr(&UDP_BUFFER, data, sizeof(data));
 
-    UDP_PAYLOAD = udp_deserialize(data, sizeof(data));
+    UDP_PAYLOAD = udp_deserialize(UDP_BUFFER);
 
     ASSERT_FALSE(get_error());
     ASSERT_EQ(UDP_PAYLOAD.type, PayloadType_Reply);
@@ -184,7 +186,9 @@ TEST udp_deserialize_reply(void) {
     ASSERT_STR_EQ(UDP_PAYLOAD.data.reply.message_content, "Hello");
 
     data[3] = 0x00;
-    UDP_PAYLOAD = udp_deserialize(data, sizeof(data));
+    bytes_clear(&UDP_BUFFER);
+    bytes_push_arr(&UDP_BUFFER, data, sizeof(data));
+    UDP_PAYLOAD = udp_deserialize(UDP_BUFFER);
 
     ASSERT_FALSE(get_error());
     ASSERT_EQ(UDP_PAYLOAD.type, PayloadType_Reply);
@@ -205,7 +209,8 @@ TEST udp_deserialize_auth(void) {
         'H', 'e', 'l', 'l', 'o', 0
     };
 
-    UDP_PAYLOAD = udp_deserialize(data, sizeof(data));
+    bytes_push_arr(&UDP_BUFFER, data, sizeof(data));
+    UDP_PAYLOAD = udp_deserialize(UDP_BUFFER);
 
     ASSERT_FALSE(get_error());
     ASSERT_EQ(UDP_PAYLOAD.type, PayloadType_Auth);
@@ -225,7 +230,8 @@ TEST udp_deserialize_join(void) {
         't', 'o', 'm', 'o', 'k', 'a', 0,
     };
 
-    UDP_PAYLOAD = udp_deserialize(data, sizeof(data));
+    bytes_push_arr(&UDP_BUFFER, data, sizeof(data));
+    UDP_PAYLOAD = udp_deserialize(UDP_BUFFER);
 
     ASSERT_FALSE(get_error());
     ASSERT_EQ(UDP_PAYLOAD.type, PayloadType_Join);
@@ -245,7 +251,8 @@ TEST udp_deserialize_msg(void) {
         'H', 'e', 'l', 'l', 'o', ' ', 'W', 'o', 'r', 'l', 'd', 0,
     };
 
-    UDP_PAYLOAD = udp_deserialize(data, sizeof(data));
+    bytes_push_arr(&UDP_BUFFER, data, sizeof(data));
+    UDP_PAYLOAD = udp_deserialize(UDP_BUFFER);
 
     ASSERT_FALSE(get_error());
     ASSERT_EQ(UDP_PAYLOAD.type, PayloadType_Message);
@@ -264,7 +271,8 @@ TEST udp_deserialize_err(void) {
         'W', 'r', 'o', 'n', 'g', 0
     };
 
-    UDP_PAYLOAD = udp_deserialize(data, sizeof(data));
+    bytes_push_arr(&UDP_BUFFER, data, sizeof(data));
+    UDP_PAYLOAD = udp_deserialize(UDP_BUFFER);
 
     ASSERT_FALSE(get_error());
     ASSERT_EQ(UDP_PAYLOAD.type, PayloadType_Err);
@@ -278,7 +286,8 @@ TEST udp_deserialize_err(void) {
 TEST udp_deserialize_bye(void) {
     uint8_t data[] = { 0xFF, 0xFA, 0xAF };
 
-    UDP_PAYLOAD = udp_deserialize(data, sizeof(data));
+    bytes_push_arr(&UDP_BUFFER, data, sizeof(data));
+    UDP_PAYLOAD = udp_deserialize(UDP_BUFFER);
 
     ASSERT_FALSE(get_error());
     ASSERT_EQ(UDP_PAYLOAD.type, PayloadType_Bye);
@@ -288,7 +297,8 @@ TEST udp_deserialize_bye(void) {
 }
 
 static greatest_test_res udp_deserialize_error(char *msg, uint8_t *data, size_t len) {
-    udp_deserialize(data, len);
+    bytes_push_arr(&UDP_BUFFER, data, len);
+    UDP_PAYLOAD = udp_deserialize(UDP_BUFFER);
     ASSERTm(msg, get_error());
     // clean up
     set_error(Error_None);
