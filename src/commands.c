@@ -61,9 +61,9 @@ Command command_parse(const uint8_t *str) {
     int cmd_offset = command_prefix_length(cmd.type);
 
     // set the bytes offset based of the command
-    if (str[cmd_offset] == ' ') {
+    if (slice[cmd_offset] == ' ') {
         bytes_skip_first_n(&buffer, cmd_offset + 1);
-    } else if (str[cmd_offset] == 0) {
+    } else if (slice[cmd_offset] == 0) {
         bytes_skip_first_n(&buffer, cmd_offset);
     } else {
         cmd.type = CommandType_None;
@@ -88,8 +88,13 @@ Command command_parse(const uint8_t *str) {
 
     switch (cmd.type) {
         case CommandType_None:
-            memcpy(cmd.data.message, str, buffer.len);
-            cmd.data.message[buffer.len] = 0;
+            read = read_message_content(cmd.data.message, &buffer);
+            if (read <= 0) { 
+                set_error(Error_InvalidInput); 
+                return cmd; 
+            } 
+            bytes_skip_first_n(&buffer, read);
+
             break;
 
         case CommandType_Auth:
@@ -108,6 +113,10 @@ Command command_parse(const uint8_t *str) {
         case CommandType_Clear:
             // No argument...
             break;
+    }
+
+    if (buffer.len != 0) {
+        set_error(Error_InvalidInput);
     }
 
     return cmd;

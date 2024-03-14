@@ -28,15 +28,6 @@ static void set_pos(void *a, size_t pos);
 /// Get the current timestamp in milli
 static pqueue_pri_t current_timestamp_millis();
 
-/**
- * @brief Count the number of bytes up to the first 0 (including that 0).
- *
- * @param bytes Pointer to the byte array.
- * @return The number of bytes up to the first 0 (including that 0).
- * @note this function assumes that the byte will be valid and always contains the ending byte (byte 0)
- */
-static size_t byte_count(const uint8_t *bytes);
-
 static size_t read_message_id(const Bytes *bytes, uint16_t *output);
 static size_t read_result(const Bytes *bytes, uint8_t *output);
 
@@ -136,7 +127,8 @@ void udp_serialize(const Payload *payload, Bytes *buffer) {
     if (get_error()) return;
 
     #define PUSH_BYTES(bytes) \
-        bytes_push_arr(buffer, bytes, byte_count(bytes)); \
+        bytes_push_c_str(buffer, (void *)bytes); \
+        bytes_push(buffer, 0); \
         if (get_error()) return
 
     switch (payload->type) {
@@ -189,12 +181,12 @@ Payload udp_deserialize(const uint8_t *bytes, size_t len) {
     uint8_t type = bytes_get(&buffer)[0];
 
     if (type != PayloadType_Confirm
-        || type != PayloadType_Reply
-        || type != PayloadType_Auth
-        || type != PayloadType_Join
-        || type != PayloadType_Message
-        || type != PayloadType_Err
-        || type != PayloadType_Bye
+        && type != PayloadType_Reply
+        && type != PayloadType_Auth
+        && type != PayloadType_Join
+        && type != PayloadType_Message
+        && type != PayloadType_Err
+        && type != PayloadType_Bye
     ) {
         set_error(Error_InvalidPayload);
         return payload;
@@ -207,7 +199,7 @@ Payload udp_deserialize(const uint8_t *bytes, size_t len) {
     bytes_skip_first_n(&buffer, 2);
 
     #define READ_FUNC(func, output) \
-        read = read_##func(&buffer, output); \
+        read = read_##func(&buffer, (void *)output); \
         if (read <= 0) { \
             set_error(Error_InvalidPayload); \
             return payload; \
@@ -229,10 +221,9 @@ Payload udp_deserialize(const uint8_t *bytes, size_t len) {
         } \
         bytes_skip_first_n(&buffer, 1)
 
-
     switch (type) {
         case PayloadType_Reply:
-            READ_FUNC(result, (uint8_t *)payload.data.reply.result);
+            READ_FUNC(result, &payload.data.reply.result);
             READ_FUNC(message_id, &payload.data.reply.ref_message_id);
             READ(reply, message_content); SKIP_0();
             break;
@@ -258,23 +249,17 @@ Payload udp_deserialize(const uint8_t *bytes, size_t len) {
             break;
     }
 
-    if (len != 0) {
+    if (buffer.len != 0) {
         set_error(Error_InvalidPayload);
     }
 
     return payload;
 }
 
-static size_t byte_count(const uint8_t *bytes) {
-    size_t i = 0;
-    while (bytes[i++]) {}
-    return i;
-}
-
 static size_t read_message_id(const Bytes *bytes, uint16_t *output) {
     if (bytes->len < 2) return -1;
     const uint8_t *slice = bytes_get(bytes);
-    *output = (slice[0] << 8) | slice[1 + 1];
+    *output = (slice[0] << 8) | slice[1];
     return 2;
 }
 
@@ -286,12 +271,11 @@ static size_t read_result(const Bytes *bytes, uint8_t *output) {
 
     uint8_t res = bytes_get(bytes)[0];
 
-    if (res != 0 || res != 1) {
+    if (res != 0 && res != 1) {
         set_error(Error_InvalidPayload);
         return 0;
     }
 
-    // reply is the only payload that has the `result` in its data field
     *output = res;
     return 1;
 }

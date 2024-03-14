@@ -40,19 +40,9 @@ Trie *TCP_TRIE;
 
 void tcp_setup() {
     TCP_TRIE = trie_new(tcp_prefix_index);
-}
-
-void tcp_destroy() {
-    trie_free(TCP_TRIE);
-}
-
-void tcp_connect(Connection *conn) {
-    // setup the trie
-    tcp_setup();
     if (get_error()) return;
 
     char *prefixes[] = {"JOIN ", "AUTH ", "MSG FROM ", "ERR FROM ", "REPLY ", "BYE\r\n", NULL };
-
     PayloadType payload_type[] = {
         PayloadType_Join,
         PayloadType_Auth,
@@ -64,7 +54,19 @@ void tcp_connect(Connection *conn) {
 
     for (int i = 0; prefixes[i]; i++) {
         trie_insert(TCP_TRIE, (void *)prefixes[i], payload_type[i]);
+        if (get_error()) return;
     }
+
+}
+
+void tcp_destroy() {
+    trie_free(TCP_TRIE);
+}
+
+void tcp_connect(Connection *conn) {
+    // setup the trie
+    tcp_setup();
+    if (get_error()) return;
 
     struct sockaddr *address = conn->address_info->ai_addr;
     socklen_t address_len = conn->address_info->ai_addrlen;
@@ -120,7 +122,13 @@ int tcp_next_timeout(Connection *conn) {
 }
 
 void tcp_serialize(const Payload *payload, Bytes *buffer) {
+    // Don't have to validate the input since it has been validated in command parsing state
+    
     #define PUSH(str) \
+        if (strlen((void *)str) == 0) { \
+            set_error(Error_InvalidPayload); \
+            return; \
+        } \
         bytes_push_c_str(buffer, (char *)str); \
         if (get_error()) return
 
@@ -219,7 +227,7 @@ Payload tcp_deserialize(const uint8_t *bytes, size_t len) {
         case PayloadType_Reply:
             bytes_skip_first_n(&buffer, strlen("REPLY "));
             bool result = true;
-            if (bytes[0] == 'N') {
+            if (bytes_get(&buffer)[0] == 'N') {
                 result = false;
                 bytes_skip_first_n(&buffer, 1);
             }

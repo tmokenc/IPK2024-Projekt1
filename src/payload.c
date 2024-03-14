@@ -22,9 +22,9 @@ Payload payload_new(PayloadType type, PayloadData *data) {
 
 static bool is_valid_id(uint8_t ch) {
     return ch == '-'
-        && (ch < 'a' || ch > 'z')
-        && (ch < 'A' || ch > 'Z')
-        && (ch < '0' || ch > '9');
+        || (ch >= 'a' && ch <= 'z')
+        || (ch >= 'A' && ch <= 'Z')
+        || (ch >= '0' && ch <= '9');
 }
 
 static bool is_valid_display_name(uint8_t ch) {
