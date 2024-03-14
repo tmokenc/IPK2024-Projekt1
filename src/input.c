@@ -9,22 +9,22 @@
 #include "error.h"
 #include <stdio.h>
 
-int readLineStdin(uint8_t *bytes, size_t max_len) {
+int readLineStdin(Bytes *bytes) {
     if (feof(stdin)) return EOF;
 
     int ch;
     size_t index = 0;
 
     while ((ch = fgetc(stdin) != EOF) && ch != '\n') {
-        if (index >= (max_len - 1)) {
+        if (index >= (BYTES_SIZE - 1)) {
             set_error(Error_InvalidInput);
             break;
         }
 
-        bytes[index++] = ch;
+        bytes_push(bytes, ch);
     }
 
-    bytes[index++] = 0;
+    bytes_push(bytes, 0);
 
     return index;
 }

@@ -8,8 +8,8 @@
 #ifndef INPUT_H
 #define INPUT_H
 
+#include "bytes.h"
 #include <stdio.h>
-#include <stdint.h>
 
 /**
  * @brief Read data from stdin and store it in the provided byte array.
@@ -20,10 +20,9 @@
  * the ending byte (byte 0).
  *
  * @param bytes Pointer to the byte array to store the read data.
- * @param max_len The maximum length of the data to read.
  * @return The number of bytes read (not including the NULL byte), or EOF.
  * @note It may set Error_InvalidInput if the input contains a 0 byte or exceeds the provided limit.
  */
-int readLineStdin(uint8_t *bytes, size_t max_len);
+int readLineStdin(Bytes *bytes);
 
 #endif
