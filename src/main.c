@@ -12,12 +12,12 @@ char *HELP = "Chat client implemented using IPK24chat protocol.\n"
 "Usage: ./ipk24chat-client [OPTIONS] \n"
 "\n"
 "Options:\n"
-"  -s <HOST>    (REQUIRED)   Server IP or hostname.\n"
-"  -p <PORT>    (REQUIRED)   Server port\n"
-"  -t <tcp|udp> (REQUIRED)   Transport protocol used for connection.\n"
-"  -d <number>               UDP confirmation timeout.\n"
-"  -r <number>               Maximum number of UDP retransmissions.\n"
-"  -h                        Print this message.\n";
+"  -s <HOST>    (REQUIRED)  Server IP or hostname.\n"
+"  -p <PORT>    (REQUIRED)  Server port\n"
+"  -t <tcp|udp> (REQUIRED)  Transport protocol used for connection.\n"
+"  -d <number>              UDP confirmation timeout.\n"
+"  -r <number>              Maximum number of UDP retransmissions.\n"
+"  -h                       Print this message.\n";
 
 void handle_sigint(int sig) { 
     // The client should read 
@@ -29,6 +29,7 @@ int main(int argc, char **argv) {
     Args args = parse_args(argc, argv);
 
     if (get_error()) {
+        fprintf(stderr, "%s", HELP);
         return get_error();
     }
 
