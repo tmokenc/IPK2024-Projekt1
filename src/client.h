@@ -33,12 +33,6 @@ Client client_init(Args args);
  * @brief Start the chat client.
  * @param client Pointer to the Client object representing the chat client.
  */
-void client_start(Client *client);
-
-/**
- * @brief Shutdown the chat client.
- * @param client Pointer to the Client object representing the chat client.
- */
-void client_shutdown(Client *client);
+void client_run(Client *client);
 
 #endif

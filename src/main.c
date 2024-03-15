@@ -46,7 +46,7 @@ int main(int argc, char **argv) {
         return get_error();
     }
 
-    client_start(&client);
+    client_run(&client);
 
     return get_error();
 }
