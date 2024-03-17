@@ -14,6 +14,7 @@
 #include <sys/types.h>
 #include <netdb.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 Connection connection_init(Args args) {
     Connection conn;
@@ -40,10 +41,17 @@ Connection connection_init(Args args) {
             break;
     }
 
-    conn.sockfd = socket(family, type, 0 | SOCK_NONBLOCK);
+    conn.sockfd = socket(family, type, 0);
 
     if (conn.sockfd <= 0) {
         fprintf(stderr, "ERROR connection: cannot create socket\n");
+        set_error(Error_Socket);
+        return conn;
+    }
+
+    int flags = fcntl(conn.sockfd, F_GETFL, 0);
+    if (fcntl(conn.sockfd, F_SETFL, flags | O_NONBLOCK) < 0) {
+        fprintf(stderr, "ERROR connection: cannot set socket to be non-blocking\n");
         set_error(Error_Socket);
         return conn;
     }

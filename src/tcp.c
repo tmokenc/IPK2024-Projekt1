@@ -81,7 +81,7 @@ void tcp_send(Connection *conn, Payload payload) {
     Bytes bytes = tcp_serialize(&payload);
     if (get_error()) return;
 
-    if (send(conn->sockfd, bytes.data, bytes.len, MSG_DONTWAIT) < 0) {
+    if (send(conn->sockfd, bytes.data, bytes.len, 0) < 0) {
         set_error(Error_Connection);
         fprintf(stderr, "ERROR tcp: Cannot send packet to the server\n");
     }
@@ -93,7 +93,7 @@ Payload tcp_receive(Connection *conn) {
     Payload payload;
     Bytes buffer = bytes_new();
 
-    ssize_t len = recv(conn->sockfd, buffer.data, BYTES_SIZE, MSG_DONTWAIT);
+    ssize_t len = recv(conn->sockfd, buffer.data, BYTES_SIZE, 0);
 
     if (len < 0) {
         set_error(Error_Connection);
