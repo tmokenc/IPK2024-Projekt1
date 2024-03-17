@@ -11,6 +11,7 @@
 #include "commands.h"
 #include <poll.h>
 #include <string.h>
+#include <unistd.h>
 
 extern bool SHOULD_SHUTDOWN;
 
@@ -60,13 +61,13 @@ void client_run(Client *client) {
     poll_fds[0].fd = client->connection.sockfd;
     poll_fds[0].events = POLLIN;
 
-    poll_fds[1].fd = 0; // filedescriptor of stdin is 0
+    poll_fds[1].fd = STDIN_FILENO;
     poll_fds[1].events = POLLIN;
 
     enum state state = State_Auth;
     enum result result = Result_Continue;
 
-    while (!SHOULD_SHUTDOWN || result != Result_Continue) {
+    while (!SHOULD_SHUTDOWN && result == Result_Continue) {
         int timeout = client->connection.next_timeout(&client->connection);
         int ret = poll(poll_fds, 2, timeout);
 

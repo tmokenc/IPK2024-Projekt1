@@ -13,18 +13,19 @@ int readLineStdin(Bytes *bytes) {
     if (feof(stdin)) return EOF;
 
     int ch;
-    size_t index = 0;
+    int count = 0;
 
-    while ((ch = fgetc(stdin) != EOF) && ch != '\n') {
-        if (index >= (BYTES_SIZE - 1)) {
+    while ((ch = fgetc(stdin)) != EOF && ch != '\n') {
+        if (count >= BYTES_SIZE) {
             set_error(Error_InvalidInput);
             break;
         }
 
         bytes_push(bytes, ch);
+        count += 1;
     }
 
     bytes_push(bytes, 0);
 
-    return index;
+    return count;
 }
