@@ -88,7 +88,7 @@ Args parse_args(int argc, char **argv) {
                 break;
             }
 
-            case 'm': {
+            case 't': {
                 if (got_mode) {
                     set_error(Error_DuplicatedArgument);
                     return args;
@@ -150,8 +150,12 @@ Args parse_args(int argc, char **argv) {
 
     if (!got_host) {
         set_error(Error_InvalidArgument);
-    } else if (!got_mode) {
+        fprintf(stderr, "Missing hostname. Please use -s <hostname>\n");
+    } 
+
+    if (!got_mode) {
         set_error(Error_InvalidArgument);
+        fprintf(stderr, "Missing port number. Please use -p <port>\n");
     }
 
     return args;
