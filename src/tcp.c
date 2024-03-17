@@ -9,10 +9,12 @@
 #include "error.h"
 #include "bytes.h"
 #include "trie.h"
+#include <errno.h>
+#include <stdio.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <netdb.h>
-
+#include <poll.h>
 
 /**
  * @brief Size of the buffer used for data transmission.
@@ -71,9 +73,32 @@ void tcp_connect(Connection *conn) {
     struct sockaddr *address = conn->address_info->ai_addr;
     socklen_t address_len = conn->address_info->ai_addrlen;
 
-    if (connect(conn->sockfd, address, address_len) != 0) {
+    int res = connect(conn->sockfd, address, address_len);
+
+    if (res != 0 && errno != EINPROGRESS) {
+        perror("ERROR tcp: Cannot connect to the server");
         set_error(Error_Connection);
-        fprintf(stderr, "tcp: Cannot connect to the server %s \n", conn->address_info->ai_canonname);
+        return;
+    }
+
+    struct pollfd fds[1];
+    fds[0].fd = conn->sockfd;
+    fds[0].events = POLLOUT;
+
+    while (1) {
+        // Poll the socket infinitely to wait for the connection to be established
+        int poll_result = poll(fds, 1, -1);
+
+        if (poll_result <= 0) {
+            perror("ERROR tcp: poll");
+            set_error(Error_Socket);
+        }
+
+
+        if (fds[0].revents & POLLOUT) {
+            printf("Connected to the server\n");
+            return;
+        }
     }
 }
 
@@ -83,7 +108,7 @@ void tcp_send(Connection *conn, Payload payload) {
 
     if (send(conn->sockfd, bytes.data, bytes.len, 0) < 0) {
         set_error(Error_Connection);
-        fprintf(stderr, "ERROR tcp: Cannot send packet to the server\n");
+        perror("ERROR tcp: Cannot send packet to the server\n");
     }
 
     bytes_clear(&bytes);
@@ -97,7 +122,7 @@ Payload tcp_receive(Connection *conn) {
 
     if (len < 0) {
         set_error(Error_Connection);
-        fprintf(stderr, "ERROR tcp: Cannot receive packet from the server\n");
+        perror("ERROR tcp: Cannot receive packet from the server\n");
     } else {
         buffer.len = len;
         payload = tcp_deserialize(buffer);
