@@ -1,8 +1,7 @@
 /**
  * @file tcp.c
  * @author Le Duy Nguyen, xnguye27, VUT FIT
- * @date 03/03/2024
- * @brief Implementation for the tcp.h module
+ * @date 03/03/2024 @brief Implementation for the tcp.h module
  */
 
 #include "tcp.h"
@@ -25,6 +24,11 @@
  * due to limitations in its specification.
  */
 #define BUFFER_SIZE (4 * 1024)
+
+/**
+ * Timeout when waiting for the connection to be established (5 seconds).
+ */
+#define TCP_CONNECT_TIMEOUT 5000
 
 /**
  * @brief Check if a byte array starts with a given null-terminated C string.
@@ -85,20 +89,17 @@ void tcp_connect(Connection *conn) {
     fds[0].fd = conn->sockfd;
     fds[0].events = POLLOUT;
 
-    while (1) {
-        // Poll the socket infinitely to wait for the connection to be established
-        int poll_result = poll(fds, 1, -1);
+    // Poll the socket infinitely to wait for the connection to be established
+    int poll_result = poll(fds, 1, TCP_CONNECT_TIMEOUT);
 
-        if (poll_result <= 0) {
-            perror("ERROR tcp: poll");
-            set_error(Error_Socket);
-        }
-
-
-        if (fds[0].revents & POLLOUT) {
-            printf("Connected to the server\n");
-            return;
-        }
+    if (poll_result < 0) {
+        perror("ERROR tcp: poll");
+        set_error(Error_Socket);
+    } else if (poll_result == 0) {
+        fprintf(stderr, "ERROR tcp: Cannot establish connection to the server within %dms\n", TCP_CONNECT_TIMEOUT);
+        set_error(Error_Socket);
+    } else if (fds[0].revents & POLLOUT) {
+        printf("Connected to the server\n");
     }
 }
 
