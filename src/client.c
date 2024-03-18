@@ -209,6 +209,7 @@ enum result client_handle_input(Client *client, enum state *state) {
 
         case CommandType_Clear:
             printf("\033\143");
+            fflush(stdout);
             break;
 
     }
