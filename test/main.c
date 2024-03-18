@@ -11,6 +11,9 @@
 
 GREATEST_MAIN_DEFS();
 
+// to compile
+bool SHOULD_SHUTDOWN = false;
+
 int main(int argc, char **argv) {
     GREATEST_MAIN_BEGIN();
 
