@@ -133,9 +133,6 @@ Payload tcp_receive(Connection *conn) {
 }
 
 void tcp_disconnect(Connection *conn) {
-    Payload payload;
-    payload.type = PayloadType_Bye;
-    tcp_send(conn, payload);
     shutdown(conn->sockfd, SHUT_RDWR);
     tcp_destroy();
 }
@@ -253,16 +250,13 @@ Payload tcp_deserialize(Bytes buffer) {
 
         case PayloadType_Reply:
             bytes_skip_first_n(&buffer, strlen("REPLY "));
-            bool result = true;
-            if (bytes_get(&buffer)[0] == 'N') {
-                result = false;
-                bytes_skip_first_n(&buffer, 1);
-            }
+
+            payload.data.reply.result = bytes_get(&buffer)[0] != 'N';
+            bytes_skip_first_n(&buffer, !payload.data.reply.result);
 
             SKIP_STR("OK IS ");
             READ(reply, message_content); 
             SKIP_STR("\r\n");
-            payload.data.reply.result = result;
             break;
 
         case PayloadType_Message:
@@ -305,6 +299,7 @@ static bool starts_with(const Bytes *bytes, const char *str) {
 
 static int tcp_prefix_index(uint8_t ch) {
     if (ch == ' ') return 26;
-    if (ch < 'A' || ch > 'Z') return -1;
-    return ch - 'A';
+    ch |= 1 << 5; // an ASCII trick to make a character lowercase.
+    if (ch >= 'a' && ch <= 'z') return ch - 'a';
+    return -1;
 }
