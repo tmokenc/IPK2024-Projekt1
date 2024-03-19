@@ -177,7 +177,7 @@ Payload udp_deserialize(Bytes buffer) {
         return payload;
     }
 
-    size_t read;
+    size_t read = 0;
     uint8_t type = bytes_get(&buffer)[0];
 
     if (type != PayloadType_Confirm
@@ -208,41 +208,34 @@ Payload udp_deserialize(Bytes buffer) {
 
     #define READ(select, buf) \
         read = read_##buf(payload.data.select.buf, &buffer); \
-        if (read <= 0) { \
+        if (read <= 0 || bytes_get(&buffer)[read] != 0) { \
             set_error(Error_InvalidPayload); \
             return payload; \
         } \
-        bytes_skip_first_n(&buffer, read);
-
-    #define SKIP_0() \
-        if (*bytes_get(&buffer) != 0) { \
-            set_error(Error_InvalidInput); \
-            return payload; \
-        } \
-        bytes_skip_first_n(&buffer, 1)
+        bytes_skip_first_n(&buffer, read + 1);
 
     switch (type) {
         case PayloadType_Reply:
             READ_FUNC(result, &payload.data.reply.result);
             READ_FUNC(message_id, &payload.data.reply.ref_message_id);
-            READ(reply, message_content); SKIP_0();
+            READ(reply, message_content); 
             break;
         case PayloadType_Auth:
-            READ(auth, username); SKIP_0();
-            READ(auth, display_name); SKIP_0();
-            READ(auth, secret); SKIP_0();
+            READ(auth, username); 
+            READ(auth, display_name); 
+            READ(auth, secret); 
             break;
         case PayloadType_Join:
-            READ(join, channel_id); SKIP_0();
-            READ(join, display_name); SKIP_0();
+            READ(join, channel_id); 
+            READ(join, display_name); 
             break;
         case PayloadType_Message:
-            READ(message, display_name); SKIP_0();
-            READ(message, message_content); SKIP_0();
+            READ(message, display_name); 
+            READ(message, message_content); 
             break;
         case PayloadType_Err:
-            READ(message, display_name); SKIP_0();
-            READ(message, message_content); SKIP_0();
+            READ(err, display_name); 
+            READ(err, message_content); 
             break;
         case PayloadType_Confirm:
         case PayloadType_Bye:
