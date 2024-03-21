@@ -99,8 +99,8 @@ Command command_parse(const uint8_t *str) {
 
         case CommandType_Auth:
             READ(auth, username); SKIP_SPACE();
-            READ(auth, secret); SKIP_SPACE();
-            READ(auth, display_name);
+            READ(auth, display_name); SKIP_SPACE();
+            READ(auth, secret); 
             break;
         case CommandType_Join:
             READ(join, channel_id);
