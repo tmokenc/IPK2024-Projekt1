@@ -1,29 +1,31 @@
 # TODO
 - [x] Argument Parser
-- [ ] Connection
-    - [ ] TCP
+- [x] Connection
+    - [x] TCP
         - [x] Connect
         - [x] Send
         - [x] Receive
-        - [ ] Disconnect
+        - [x] Disconnect
+        - [x] NextTimeout
         - [x] Serialize payload
         - [x] Deserialize payload
-    - [ ] UDP
+    - [x] UDP
         - [x] Connect
-        - [ ] Send
-        - [ ] Receive
-        - [ ] Disconnect
+        - [x] Send
+        - [x] Receive
+        - [x] Disconnect
+        - [x] NextTimeout
         - [x] Serialize payload
         - [X] Deserialize payload
 - [ ] Client
     - [ ] Main loops
-    - [ ] Commands
+    - [x] Commands
         - [x] Command Parser
-        - [ ] Auth
-        - [ ] Join
-        - [ ] Rename
-        - [ ] Help
-- [ ] Testing
+        - [x] Auth
+        - [x] Join
+        - [x] Rename
+        - [x] Help
+- [x] Testing
     - [x] Args
     - [x] Bytes
     - [x] Trie
@@ -33,3 +35,5 @@
     - [X] UDP
 
 # Limitation
+- When `REPLY` came before `CONFIRM` of the `AUTH` request in UDP variant, it accept that as the `AUTH` as been successfully delivered to the server. This is an vulnerbility on confidential and availbility and may cause some serious exploits if it is use outside of a school project.
+-

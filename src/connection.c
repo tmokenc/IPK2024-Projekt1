@@ -76,6 +76,7 @@ Connection connection_init(Args args) {
         return conn;
     }
 
+    conn.state = ConnectionState_Idle;
     return conn;
 }
 

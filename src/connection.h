@@ -13,6 +13,11 @@
 #include <stdint.h>
 #include <sys/socket.h>
 
+typedef enum {
+    ConnectionState_Idle,
+    ConnectionState_WaitingAck,
+} ConnectionState;
+
 /**
  * @brief Structure representing a connection to the server.
  */
@@ -57,6 +62,7 @@ typedef int (*NextTimeoutFunc)(Connection *connection);
  */
 struct Connection {
     Args args; /**< Application arguments. */
+    ConnectionState state; /**< Current state of the connection. */
 
     int sockfd; /**< Socket file descriptor for the connection. */
     struct addrinfo *address_info; /**< Info about host address. */

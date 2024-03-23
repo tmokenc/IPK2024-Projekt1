@@ -15,7 +15,7 @@ Payload payload_new(PayloadType type, PayloadData *data) {
     Payload payload;
     payload.type = type;
     payload.id = NEXT_MESSAGE_ID++;
-    if (data) payload.data = *data;
+    if (data) memcpy(&payload.data, data, sizeof(PayloadData));
 
     return payload;
 }
