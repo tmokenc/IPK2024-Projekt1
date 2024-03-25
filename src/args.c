@@ -23,7 +23,7 @@ int parse_16bit_number(char *str) {
     return num;
 }
 
-Args parse_args(int argc, char **argv) {
+Args parse_args(int argc, char **argv, ProgramMode prg_mode) {
     Args args;
 
     if (argc == 2 && strcmp(argv[1], "-h") == 0) {
@@ -59,7 +59,27 @@ Args parse_args(int argc, char **argv) {
         }
 
         switch (key[1]) {
+            case 'l': {
+                if (prg_mode != ProgramMode_Server) {
+                    set_error(Error_InvalidArgument);
+                    return args;
+                }
+
+                if (got_host) {
+                    set_error(Error_DuplicatedArgument);
+                    return args;
+                }
+
+                args.host = val;
+                got_host = true;
+                break;
+            }
             case 's': {
+                if (prg_mode != ProgramMode_Client) {
+                    set_error(Error_InvalidArgument);
+                    return args;
+                }
+
                 if (got_host) {
                     set_error(Error_DuplicatedArgument);
                     return args;
@@ -89,6 +109,11 @@ Args parse_args(int argc, char **argv) {
             }
 
             case 't': {
+                if (prg_mode != ProgramMode_Client) {
+                    set_error(Error_InvalidArgument);
+                    return args;
+                }
+
                 if (got_mode) {
                     set_error(Error_DuplicatedArgument);
                     return args;
@@ -149,13 +174,18 @@ Args parse_args(int argc, char **argv) {
     }
 
     if (!got_host) {
-        set_error(Error_InvalidArgument);
-        fprintf(stderr, "Missing hostname. Please use -s <hostname>\n");
+        if (prg_mode == ProgramMode_Client) {
+            set_error(Error_InvalidArgument);
+            fprintf(stderr, "Missing hostname. Please use -s <hostname>\n");
+        } else {
+            strcpy(args.host, "0.0.0.0");
+        }
+
     } 
 
-    if (!got_mode) {
+    if (!got_mode && prg_mode == ProgramMode_Client) {
         set_error(Error_InvalidArgument);
-        fprintf(stderr, "Missing port number. Please use -p <port>\n");
+        fprintf(stderr, "Missing connection mode. Please use -t (udp|tcp)\n");
     }
 
     return args;
