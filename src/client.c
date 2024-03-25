@@ -12,27 +12,25 @@
 #include <poll.h>
 #include <string.h>
 #include <unistd.h>
-
-extern bool SHOULD_SHUTDOWN;
+#include <signal.h> 
+#include "connection.h"
+#include "payload.h"
 
 enum state {
+    State_Start,
     State_Auth,
     State_Open,
     State_Error,
     State_End,
+    State_EndWithoutBye,
 };
 
-enum result {
-    Result_Continue,
-    Result_Shutdown,
-};
+void client_init(Args);
+void client_shutdown();
+void client_handle_input();
+void client_handle_socket();
 
-enum result client_handle_input(Client *, enum state *);
-enum result client_handle_socket(Client *, enum state *);
-
-void client_shutdown(Client *);
-
-char *HELP_MESSAGE = 
+char *CHAT_HELP_MESSAGE = 
 "IPK2024-chat: To start, use /auth to authenticate then use /join to join a channel and now you can start chatting.\n"
 "Type any message up to 1400 characters long then press enter to send. "
 "The message will be sent line by line\n"
@@ -45,61 +43,93 @@ char *HELP_MESSAGE =
 "/clear - clear the terminal\n"
 "";
 
-Client client_init(Args args) {
-    Client client;
-    command_setup();
-    client.connection = connection_init(args);
-    return client;
-}
+enum state STATE = State_Start;
+PayloadType LAST_PAYLOAD_TYPE;
+Connection CONNECTION;
+DisplayName DISPLAY_NAME;
 
-void client_run(Client *client) {
-    client->connection.connect(&client->connection);
+void handle_sigint(int sig) { 
+    (void)sig;
+
+    if (STATE == State_Start) {
+        STATE = State_EndWithoutBye;
+    } else {
+        STATE = State_End;
+    }
+} 
+
+void client_run(Args args) {
+    client_init(args);
+
     if (get_error()) return;
 
     struct pollfd poll_fds[2] = {0};
     
-    poll_fds[0].fd = client->connection.sockfd;
+    poll_fds[0].fd = CONNECTION.sockfd;
     poll_fds[0].events = POLLIN;
 
     poll_fds[1].fd = STDIN_FILENO;
     poll_fds[1].events = POLLIN;
 
-    enum state state = State_Auth;
-    enum result result = Result_Continue;
+    while (STATE != State_End && STATE != State_EndWithoutBye) {
+        int timeout = CONNECTION.next_timeout(&CONNECTION);
+        int nof_fds = 2;
 
-    while (!SHOULD_SHUTDOWN && result == Result_Continue) {
-        int timeout = client->connection.next_timeout(&client->connection);
-        int ret = poll(poll_fds, 2, timeout);
+        if (STATE == State_Auth || CONNECTION.state == ConnectionState_WaitingAck) {
+            nof_fds = 1;
+        }
+
+        int ret = poll(poll_fds, nof_fds, timeout);
 
         if (ret <= 0) {
-            continue;
             // TODO
+            continue;
         }
 
         if (poll_fds[0].revents & POLLIN) {
             // GOT MESSAGE FROM SERVER
-            result = client_handle_socket(client, &state);
+            client_handle_socket();
         }
 
         if (poll_fds[1].revents & POLLIN) {
             // GOT USER INPUT
-            result = client_handle_input(client, &state);
+            client_handle_input();
         }
     }
 
-    client_shutdown(client);
+    client_shutdown();
 }
 
-void client_shutdown(Client *client) {
-    Payload payload = payload_new(PayloadType_Bye, NULL);
-    client->connection.send(&client->connection, payload);
-    connection_close(&client->connection);
+void client_init(Args args) {
+    command_setup();
+    signal(SIGINT, handle_sigint); 
+    CONNECTION = connection_init(args);
+    CONNECTION.connect(&CONNECTION);
+}
+
+void client_shutdown() {
+    if (STATE != State_EndWithoutBye) {
+        struct pollfd poll_fds = {0};
+        
+        poll_fds.fd = CONNECTION.sockfd;
+        poll_fds.events = POLLIN;
+
+        Payload payload = payload_new(PayloadType_Bye, NULL);
+        CONNECTION.send(&CONNECTION, payload);
+
+        // Graceful shutdown. Wait for the BYE message to be delivered
+        while (CONNECTION.state == ConnectionState_WaitingAck) {
+            int timeout = CONNECTION.next_timeout(&CONNECTION);
+            poll(&poll_fds, 1, timeout);
+        }
+    }
+
+    connection_close(&CONNECTION);
     command_clean_up();
 }
 
-enum result client_handle_socket(Client *client, enum state *state) {
-    (void)state;
-    Payload payload = client->connection.receive(&client->connection);
+void client_handle_socket() {
+    Payload payload = CONNECTION.receive(&CONNECTION);
 
     if (get_error()) {
         // TODO
@@ -107,104 +137,133 @@ enum result client_handle_socket(Client *client, enum state *state) {
 
     switch (payload.type) {
         case PayloadType_Confirm:
-            break;
-        case PayloadType_Reply:
-            // TODO
+            // Skip this, it is handled by the connection itself
             break;
         case PayloadType_Auth:
-            // TODO
-            break;
         case PayloadType_Join:
-            // TODO
+            STATE = State_End;
             break;
+
+        case PayloadType_Reply:
+            if (STATE != State_Auth) {
+                return;
+            }
+
+            if (payload.data.reply.result) {
+                STATE = State_Open;
+                fprintf(stderr, "Success: ");
+            } else {
+                STATE = State_Start;
+                fprintf(stderr, "Failure: ");
+            }
+
+            CONNECTION.state = ConnectionState_Idle;
+            fprintf(stderr, "%s\n", payload.data.reply.message_content);
+            break;
+
         case PayloadType_Message:
-            // TODO
+            printf("%s: %s\n", payload.data.message.display_name, payload.data.message.message_content);
             break;
+
         case PayloadType_Err:
-            // TODO
+            fprintf(stderr, "ERR FROM %s: %s\n", payload.data.message.display_name, payload.data.message.message_content);
+            STATE = State_End;
             break;
+
         case PayloadType_Bye:
-            // TODO
+            if (STATE == State_Open) {
+                STATE = State_EndWithoutBye;
+            } else {
+                STATE = State_End;
+            }
+
             break;
     }
-
-    // TODO
-    return Result_Continue;
 }
 
-enum result client_handle_input(Client *client, enum state *state) {
+void client_handle_input() {
     Bytes buffer = bytes_new();
     int result = readLineStdin(&buffer);
 
+    Payload payload = {0};
+    bool need_to_send = false;
+
     if (result == EOF) {
         // shutdown
-        return Result_Shutdown;
+        STATE = State_End;
+        return;
     }
 
-    if (result <= 0) {
-        // Error...
-        return Result_Shutdown;
+    if (result == 0) {
+        return;
     }
 
     Command cmd = command_parse(bytes_get(&buffer));
 
+    if (get_error()) {
+        fprintf(stderr, "ERR: Cannot parse the input\n");
+        error_clear();
+        return;
+    }
+
     switch (cmd.type) {
         case CommandType_None: {
-            if (*state != State_Open) {
-                fprintf(stderr, "You have to join a channel first before sending messages.\n"
+            if (STATE != State_Open) {
+                fprintf(stderr, "ERR: You have to join a channel first before sending messages. "
                                 "Use /help for more information.\n");
                 break;
             }
 
-            Payload payload;
-            payload.type = PayloadType_Message;
-            memcpy(payload.data.message.display_name, client->display_name, DISPLAY_NAME_LEN + 1);
-            memcpy(payload.data.message.message_content, cmd.data.message, MESSAGE_CONTENT_LEN + 1);
-            client->connection.send(&client->connection, payload);
+            PayloadData data = {0};
+            memcpy(data.message.display_name, DISPLAY_NAME, DISPLAY_NAME_LEN + 1);
+            memcpy(data.message.message_content, cmd.data.message, MESSAGE_CONTENT_LEN + 1);
 
+            payload = payload_new(PayloadType_Message, &data);
+            need_to_send = true;
             break;
         }
 
         case CommandType_Auth: {
-            if (*state != State_Auth) {
-                fprintf(stderr, "You have been authenticated. No need to do it again\n");
+            if (STATE != State_Start) {
+                fprintf(stderr, "ERR: You have been authenticated. No need to do it again\n");
                 break;
             }
 
-            memcpy(client->display_name, cmd.data.auth.display_name, DISPLAY_NAME_LEN + 1);
+            memcpy(DISPLAY_NAME, cmd.data.auth.display_name, DISPLAY_NAME_LEN + 1);
 
-            Payload payload;
-            payload.type = PayloadType_Auth;
-            memcpy(payload.data.auth.display_name, client->display_name, DISPLAY_NAME_LEN + 1);
-            memcpy(payload.data.auth.username, cmd.data.auth.username, USERNAME_LEN + 1);
-            memcpy(payload.data.auth.secret, cmd.data.auth.secret, SECRET_LEN + 1);
-            client->connection.send(&client->connection, payload);
+            PayloadData data = {0};
+            memcpy(data.auth.display_name, DISPLAY_NAME, DISPLAY_NAME_LEN + 1);
+            memcpy(data.auth.username, cmd.data.auth.username, USERNAME_LEN + 1);
+            memcpy(data.auth.secret, cmd.data.auth.secret, SECRET_LEN + 1);
 
+            payload = payload_new(PayloadType_Auth, &data);
+            need_to_send = true;
+            STATE = State_Auth;
             break;
         }
 
         case CommandType_Join: {
-            if (*state == State_Auth) {
-                fprintf(stderr, "Use /auth to authenticate first before joining a channel.\n"
+            if (STATE != State_Open) {
+                fprintf(stderr, "ERR: Use /auth to authenticate first before joining a channel. "
                                 "Use /help for more information.");
                 break;
             }
 
-            Payload payload;
-            payload.type = PayloadType_Join;
-            memcpy(payload.data.join.display_name, client->display_name, DISPLAY_NAME_LEN + 1);
-            memcpy(payload.data.join.channel_id, cmd.data.join.channel_id, CHANNEL_ID_LEN + 1);
-            client->connection.send(&client->connection, payload);
+            PayloadData data = {0};
+            memcpy(data.join.display_name, DISPLAY_NAME, DISPLAY_NAME_LEN + 1);
+            memcpy(data.join.channel_id, cmd.data.join.channel_id, CHANNEL_ID_LEN + 1);
 
+            payload = payload_new(PayloadType_Join, &data);
+            need_to_send = true;
             break;
         }
 
         case CommandType_Rename:
-            memcpy(client->display_name, cmd.data.rename.display_name, DISPLAY_NAME_LEN + 1);
+            memcpy(DISPLAY_NAME, cmd.data.rename.display_name, DISPLAY_NAME_LEN + 1);
             break;
 
         case CommandType_Help:
-            printf("%s", HELP_MESSAGE);
+            printf("%s", CHAT_HELP_MESSAGE);
             break;
 
         case CommandType_Clear:
@@ -212,11 +271,16 @@ enum result client_handle_input(Client *client, enum state *state) {
             fflush(stdout);
             break;
 
+        case CommandType_Exit:
+            STATE = State_End;
+            break;
+
     }
     
-    if (get_error()) {
-        // TODO
+    if (need_to_send) {
+        CONNECTION.send(&CONNECTION, payload);
+        if (get_error()) {
+            // TODO
+        }
     }
-
-    return Result_Continue;
 }
