@@ -80,7 +80,7 @@ void tcp_connect(Connection *conn) {
     int res = connect(conn->sockfd, address, address_len);
 
     if (res != 0 && errno != EINPROGRESS) {
-        perror("ERROR tcp: Cannot connect to the server");
+        perror("ERR: Cannot connect to the server");
         set_error(Error_Connection);
         return;
     }
@@ -93,13 +93,13 @@ void tcp_connect(Connection *conn) {
     int poll_result = poll(fds, 1, TCP_CONNECT_TIMEOUT);
 
     if (poll_result < 0) {
-        perror("ERROR tcp: poll");
+        perror("ERR: poll");
         set_error(Error_Socket);
     } else if (poll_result == 0) {
-        fprintf(stderr, "ERROR tcp: Cannot establish connection to the server within %dms\n", TCP_CONNECT_TIMEOUT);
+        fprintf(stderr, "ERR: Cannot establish connection to the server within %dms", TCP_CONNECT_TIMEOUT);
         set_error(Error_Socket);
     } else if (fds[0].revents & POLLOUT) {
-        printf("Connected to the server\n");
+        // printf("Connected to the server\n");
     }
 }
 
@@ -109,7 +109,7 @@ void tcp_send(Connection *conn, Payload payload) {
 
     if (send(conn->sockfd, bytes.data, bytes.len, 0) < 0) {
         set_error(Error_Connection);
-        perror("ERROR tcp: Cannot send packet to the server\n");
+        perror("ERR: Cannot send packet to the server");
     }
 
     bytes_clear(&bytes);
@@ -123,7 +123,7 @@ Payload tcp_receive(Connection *conn) {
 
     if (len < 0) {
         set_error(Error_Connection);
-        perror("ERROR tcp: Cannot receive packet from the server\n");
+        perror("ERR: Cannot receive packet from the server");
     } else {
         buffer.len = len;
         payload = tcp_deserialize(buffer);

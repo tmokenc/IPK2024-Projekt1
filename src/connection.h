@@ -13,6 +13,9 @@
 #include <stdint.h>
 #include <sys/socket.h>
 
+/**
+ * @brief Enumeration representing current state of the connection.
+ */
 typedef enum {
     ConnectionState_Idle,
     ConnectionState_WaitingAck,

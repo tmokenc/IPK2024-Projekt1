@@ -20,13 +20,14 @@ Trie *COMMAND_TRIE;
 
 void command_setup() {
     // NULL at the ends as the indicator for end of the array
-    char *commands[] = {"auth", "join", "rename", "help", "clear", NULL};
+    char *commands[] = {"auth", "join", "rename", "help", "clear", "exit", NULL};
     char command_types[] = {
         CommandType_Auth,
         CommandType_Join,
         CommandType_Rename,
         CommandType_Help,
         CommandType_Clear,
+        CommandType_Exit,
     };
 
     COMMAND_TRIE = trie_new(command_char_to_index);
@@ -111,6 +112,7 @@ Command command_parse(const uint8_t *str) {
 
         case CommandType_Help:
         case CommandType_Clear:
+        case CommandType_Exit:
             // No argument...
             break;
     }
@@ -129,6 +131,7 @@ static int command_prefix_length(CommandType type) {
         case CommandType_Auth:
         case CommandType_Join:
         case CommandType_Help:
+        case CommandType_Exit:
             return 5;
         case CommandType_Clear:
             return 6;

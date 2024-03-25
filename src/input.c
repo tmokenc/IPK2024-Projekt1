@@ -16,16 +16,17 @@ int readLineStdin(Bytes *bytes) {
     int count = 0;
 
     while ((ch = fgetc(stdin)) != EOF && ch != '\n') {
-        if (count >= BYTES_SIZE) {
+        if (count++ >= BYTES_SIZE) {
             set_error(Error_InvalidInput);
-            break;
+            continue;
         }
 
         bytes_push(bytes, ch);
-        count += 1;
     }
 
-    bytes_push(bytes, 0);
+    if (!get_error()) {
+        bytes_push(bytes, 0);
+    }
 
     return count;
 }

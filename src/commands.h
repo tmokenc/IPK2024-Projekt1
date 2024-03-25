@@ -20,6 +20,7 @@ typedef enum {
 
     // custom commands
     CommandType_Clear,
+    CommandType_Exit,
 } CommandType;
 
 typedef struct {
