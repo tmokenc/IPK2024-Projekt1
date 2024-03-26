@@ -137,11 +137,6 @@ void tcp_disconnect(Connection *conn) {
     tcp_destroy();
 }
 
-int tcp_next_timeout(Connection *conn) {
-    (void)conn;
-    return -1;
-}
-
 Bytes tcp_serialize(const Payload *payload) {
     // Don't have to validate the input since it has been validated in command parsing state
     Bytes buffer = bytes_new();

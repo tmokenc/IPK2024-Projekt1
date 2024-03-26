@@ -15,6 +15,15 @@
 #include <signal.h> 
 #include "connection.h"
 #include "payload.h"
+#include "time.h"
+#include "bit_field.h"
+
+struct current_payload {
+    Payload payload;
+    bool got_ack;
+    int retry_count;
+    Timestamp timestamp;
+};
 
 enum state {
     State_Start,
@@ -29,6 +38,8 @@ void client_init(Args);
 void client_shutdown();
 void client_handle_input();
 void client_handle_socket();
+void client_send(PayloadType, PayloadData *);
+void client_send_confirm(Payload *);
 
 char *CHAT_HELP_MESSAGE = 
 "IPK2024-chat: To start, use /auth to authenticate then use /join to join a channel and now you can start chatting.\n"
@@ -46,9 +57,12 @@ char *CHAT_HELP_MESSAGE =
 enum state STATE = State_Start;
 PayloadType LAST_PAYLOAD_TYPE;
 Connection CONNECTION;
+BitField RECEIVED_ID;
 DisplayName DISPLAY_NAME;
+struct current_payload CURRENT_PAYLOAD;
 
 void handle_sigint(int sig) { 
+    logfmt("Get signal %u", sig);
     (void)sig;
 
     if (STATE == State_Start) {
@@ -71,18 +85,41 @@ void client_run(Args args) {
     poll_fds[1].fd = STDIN_FILENO;
     poll_fds[1].events = POLLIN;
 
-    while (STATE != State_End && STATE != State_EndWithoutBye) {
-        int timeout = CONNECTION.next_timeout(&CONNECTION);
+    while (!(STATE == State_End && CURRENT_PAYLOAD.got_ack)) {
+        int timeout = -1;
         int nof_fds = 2;
 
-        if (STATE == State_Auth || CONNECTION.state == ConnectionState_WaitingAck) {
+        if (STATE == State_Auth) {
             nof_fds = 1;
         }
 
+        if (!CURRENT_PAYLOAD.got_ack) {
+            timeout = CONNECTION.args.udp_timeout - timestamp_elapsed(CURRENT_PAYLOAD.timestamp);
+            /// Very rare case but better safe than sorry
+            if (timeout < 0) timeout = 0;
+            nof_fds = 1;
+        }
+
+        logfmt("Event before poll? %d\n", poll_fds[0].revents & POLLIN);
         int ret = poll(poll_fds, nof_fds, timeout);
 
-        if (ret <= 0) {
-            // TODO
+        if (ret == 0) {
+            /// TIMEOUT
+            
+            if (++CURRENT_PAYLOAD.retry_count > CONNECTION.args.udp_retransmissions) {
+                /// Consider disconnected
+                STATE = State_End;
+                break;
+            }
+
+            CONNECTION.send(&CONNECTION, CURRENT_PAYLOAD.payload);
+            continue;
+        }
+
+        if (ret < 0) {
+            // GOT ERROR
+            STATE = State_End;
+            client_send(PayloadType_Bye, NULL);
             continue;
         }
 
@@ -103,27 +140,17 @@ void client_run(Args args) {
 void client_init(Args args) {
     command_setup();
     signal(SIGINT, handle_sigint); 
+    RECEIVED_ID = bit_field_new();
+
+    if (get_error()) return;
+
     CONNECTION = connection_init(args);
     CONNECTION.connect(&CONNECTION);
+    CURRENT_PAYLOAD.got_ack = true;
 }
 
 void client_shutdown() {
-    if (STATE != State_EndWithoutBye) {
-        struct pollfd poll_fds = {0};
-        
-        poll_fds.fd = CONNECTION.sockfd;
-        poll_fds.events = POLLIN;
-
-        Payload payload = payload_new(PayloadType_Bye, NULL);
-        CONNECTION.send(&CONNECTION, payload);
-
-        // Graceful shutdown. Wait for the BYE message to be delivered
-        while (CONNECTION.state == ConnectionState_WaitingAck) {
-            int timeout = CONNECTION.next_timeout(&CONNECTION);
-            poll(&poll_fds, 1, timeout);
-        }
-    }
-
+    bit_field_free(&RECEIVED_ID);
     connection_close(&CONNECTION);
     command_clean_up();
 }
@@ -135,29 +162,56 @@ void client_handle_socket() {
         // TODO
     }
 
+    printf("Got payload type %d\n", payload.type);
+
+    /// Wait for ack first
+    if (!CURRENT_PAYLOAD.got_ack && payload.type != PayloadType_Confirm) {
+        return;
+    }
+
+    client_send_confirm(&payload);
+
+    if (payload.type != PayloadType_Confirm) {
+        if (CONNECTION.args.mode == Mode_UDP && bit_field_contains(&RECEIVED_ID, payload.id)) {
+            return;
+        } else {
+            bit_field_insert(&RECEIVED_ID, payload.id);
+        }
+    }
+
     switch (payload.type) {
         case PayloadType_Confirm:
-            // Skip this, it is handled by the connection itself
-            break;
+            printf("Got here\n");
+            if (payload.id == CURRENT_PAYLOAD.payload.id) {
+                CURRENT_PAYLOAD.got_ack = true;
+                CURRENT_PAYLOAD.retry_count = 0;
+            }
+            return;
+
         case PayloadType_Auth:
-        case PayloadType_Join:
+        case PayloadType_Join: {
+            /// Error state, send the ERR then go to the End state immediately.
+            PayloadData data = {0};
+            memcpy(data.err.display_name, DISPLAY_NAME, DISPLAY_NAME_LEN + 1);
+            strcpy((void *)data.err.message_content, "Received malformed payload");
+            client_send(PayloadType_Err, &data);
             STATE = State_End;
             break;
+        }
 
         case PayloadType_Reply:
-            if (STATE != State_Auth) {
+            if (STATE != State_Auth && STATE != State_Open) {
                 return;
             }
 
             if (payload.data.reply.result) {
-                STATE = State_Open;
                 fprintf(stderr, "Success: ");
+                STATE = State_Open;
             } else {
-                STATE = State_Start;
                 fprintf(stderr, "Failure: ");
+                if (STATE == State_Auth) STATE = State_Start;
             }
 
-            CONNECTION.state = ConnectionState_Idle;
             fprintf(stderr, "%s\n", payload.data.reply.message_content);
             break;
 
@@ -184,9 +238,6 @@ void client_handle_socket() {
 void client_handle_input() {
     Bytes buffer = bytes_new();
     int result = readLineStdin(&buffer);
-
-    Payload payload = {0};
-    bool need_to_send = false;
 
     if (result == EOF) {
         // shutdown
@@ -216,10 +267,9 @@ void client_handle_input() {
 
             PayloadData data = {0};
             memcpy(data.message.display_name, DISPLAY_NAME, DISPLAY_NAME_LEN + 1);
-            memcpy(data.message.message_content, cmd.data.message, MESSAGE_CONTENT_LEN + 1);
+            strcpy((void *)data.message.message_content, (void *)cmd.data.message);
 
-            payload = payload_new(PayloadType_Message, &data);
-            need_to_send = true;
+            client_send(PayloadType_Message, &data);
             break;
         }
 
@@ -236,8 +286,7 @@ void client_handle_input() {
             memcpy(data.auth.username, cmd.data.auth.username, USERNAME_LEN + 1);
             memcpy(data.auth.secret, cmd.data.auth.secret, SECRET_LEN + 1);
 
-            payload = payload_new(PayloadType_Auth, &data);
-            need_to_send = true;
+            client_send(PayloadType_Auth, &data);
             STATE = State_Auth;
             break;
         }
@@ -253,8 +302,7 @@ void client_handle_input() {
             memcpy(data.join.display_name, DISPLAY_NAME, DISPLAY_NAME_LEN + 1);
             memcpy(data.join.channel_id, cmd.data.join.channel_id, CHANNEL_ID_LEN + 1);
 
-            payload = payload_new(PayloadType_Join, &data);
-            need_to_send = true;
+            client_send(PayloadType_Join, &data);
             break;
         }
 
@@ -276,11 +324,29 @@ void client_handle_input() {
             break;
 
     }
-    
-    if (need_to_send) {
-        CONNECTION.send(&CONNECTION, payload);
-        if (get_error()) {
-            // TODO
-        }
+}
+
+void client_send_confirm(Payload *payload) {
+    // Mode other than UDP does not need to send ack
+    // Also does not need confirming the confirm payload
+    if (CONNECTION.args.mode != Mode_UDP || payload->type == PayloadType_Confirm) {
+        return;
     }
+
+    Payload confirm;
+    confirm.id = payload->id;
+    confirm.type = PayloadType_Confirm;
+    CONNECTION.send(&CONNECTION, confirm);
+}
+
+void client_send(PayloadType type, PayloadData *data) {
+    CURRENT_PAYLOAD.payload = payload_new(type, data);
+    CONNECTION.send(&CONNECTION, CURRENT_PAYLOAD.payload);
+    
+    if (get_error()) {
+        // TODO
+    }
+    
+    CURRENT_PAYLOAD.got_ack = CONNECTION.args.mode == Mode_TCP;
+    CURRENT_PAYLOAD.timestamp = timestamp_now();
 }

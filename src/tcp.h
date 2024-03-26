@@ -37,14 +37,6 @@ Payload tcp_receive(Connection *connection);
  */
 void tcp_disconnect(Connection *connection);
 
-/**
- * @brief Get the next timeout for the poll function to wait
- * @param connection Pointer to the Connection object representing the UDP connection.
- * @return The timeout, -1 if not needed
- * @note this function will always return -1 since TCP connection does not need confirm on application layer
- */
-int tcp_next_timeout(Connection *connection);
-
 /// Setup, this function is called automatically by the udp_connect
 /// Exporting this just for testing purpose
 void tcp_setup();
