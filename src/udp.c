@@ -18,9 +18,12 @@ static size_t read_result(const Bytes *bytes, uint8_t *output);
 void udp_connect(Connection *conn) {
     // since it's UDP, it does not have to establish a connection to the server
     (void)conn;
+    log("Connected");
 }
 
 void udp_send(Connection *conn, Payload payload) {
+    logfmt("Sending payload type %u", payload.type);
+
     Bytes bytes = udp_serialize(&payload);
     struct sockaddr *address = conn->address_info->ai_addr;
     socklen_t address_len = conn->address_info->ai_addrlen;
@@ -34,8 +37,9 @@ void udp_send(Connection *conn, Payload payload) {
 }
 
 Payload udp_receive(Connection *conn) {
-    Payload payload = {0};
+    log("Received payload");
 
+    Payload payload = {0};
     Bytes buffer = bytes_new();
 
     struct sockaddr *address = conn->address_info->ai_addr;
@@ -49,12 +53,22 @@ Payload udp_receive(Connection *conn) {
     } else {
         buffer.len = bytes_rx;
         payload = udp_deserialize(buffer);
+        
+        logfmt("Received payload with ID %u", payload.id);
+        if (payload.type != PayloadType_Confirm) {
+            log("Sending confirm");
+            Payload confirm;
+            confirm.type = PayloadType_Confirm;
+            confirm.id = payload.id;
+            udp_send(conn, confirm);
+        }
     }
 
     return payload;
 }
 
 void udp_disconnect(Connection *conn) {
+    log("Disconnected");
     // same as udp_connect
     (void)conn;
 }

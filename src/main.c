@@ -50,6 +50,7 @@ char *SERVER_HELP = "Chat server implemented using IPK24chat protocol.\n"
 
 int main(int argc, char **argv) {
     ProgramMode mode = current_program_mode(*argv);
+
     Program program = mode == ProgramMode_Server ? server_run : client_run;
     char *help = mode == ProgramMode_Server ? SERVER_HELP : CLIENT_HELP;
 
@@ -65,6 +66,7 @@ int main(int argc, char **argv) {
         return 0;
     }
 
+    log("Start Program");
     program(args);
 
     return get_error();
@@ -73,6 +75,7 @@ int main(int argc, char **argv) {
 ProgramMode current_program_mode(char *program_name) {
     int len = strlen(program_name);
     int start = len - strlen("ipk24chat-server");
+    if (start < 0) return ProgramMode_Client;
     /// If the program's name ends with ipk24chat-server, it's the server,  the client otherwise.
     return strcmp(program_name + start, "ipk24chat-server") == 0 
             ? ProgramMode_Server 

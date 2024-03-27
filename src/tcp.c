@@ -16,16 +16,6 @@
 #include <poll.h>
 
 /**
- * @brief Size of the buffer used for data transmission.
- *
- * This macro defines the size of the buffer used for data transmission.
- * A value of 4 KiB (4096 bytes) is considered reasonable for modern systems
- * and is sufficient to hold the longest packet in the IPK2024 protocol
- * due to limitations in its specification.
- */
-#define BUFFER_SIZE (4 * 1024)
-
-/**
  * Timeout when waiting for the connection to be established (5 seconds).
  */
 #define TCP_CONNECT_TIMEOUT 5000
@@ -58,11 +48,13 @@ void tcp_setup() {
         PayloadType_Bye,
     };
 
+    log("Establish TCP connection");
     for (int i = 0; prefixes[i]; i++) {
         trie_insert(TCP_TRIE, (void *)prefixes[i], payload_type[i]);
         if (get_error()) return;
     }
 
+    log("Established");
 }
 
 void tcp_destroy() {
@@ -116,6 +108,7 @@ void tcp_send(Connection *conn, Payload payload) {
 }
 
 Payload tcp_receive(Connection *conn) {
+    log("Receiving TCP packet");
     Payload payload;
     Bytes buffer = bytes_new();
 
@@ -127,12 +120,14 @@ Payload tcp_receive(Connection *conn) {
     } else {
         buffer.len = len;
         payload = tcp_deserialize(buffer);
+        logfmt("Received payload type %u", payload.type);
     }
 
     return payload;
 }
 
 void tcp_disconnect(Connection *conn) {
+    log("Disconnecting TCP connection");
     shutdown(conn->sockfd, SHUT_RDWR);
     tcp_destroy();
 }

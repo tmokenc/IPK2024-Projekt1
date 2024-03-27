@@ -10,6 +10,7 @@
 #include <stdio.h>
 
 int readLineStdin(Bytes *bytes) {
+    log("Reading user input from stdin");
     if (feof(stdin)) return EOF;
 
     int ch;
@@ -22,6 +23,11 @@ int readLineStdin(Bytes *bytes) {
         }
 
         bytes_push(bytes, ch);
+    }
+
+    if (ch == EOF) {
+        log("Got EOF");
+        return EOF;
     }
 
     if (!get_error()) {

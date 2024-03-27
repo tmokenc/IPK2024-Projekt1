@@ -8,6 +8,7 @@
 #include "trie.h"
 #include "error.h"
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 
 Trie *trie_new(ToIndexFunc func) {
@@ -18,6 +19,7 @@ Trie *trie_new(ToIndexFunc func) {
         return NULL;
     }
 
+    logfmt("Allocating %lu bytes for trie", sizeof(Trie));
     memset(trie, 0, sizeof(Trie));
     trie->to_index = func;
     trie->value = -1;
@@ -26,6 +28,7 @@ Trie *trie_new(ToIndexFunc func) {
 }
 
 void trie_free(Trie *trie) {
+    log("Deallocating trie");
     if (!trie) {
         return;
     }
@@ -39,6 +42,7 @@ void trie_free(Trie *trie) {
 }
 
 void trie_insert(Trie *trie, const uint8_t *str, int value) {
+    logfmt("Insert %s into trie with value %d", str, value);
     int index = trie->to_index(str[0]);
 
     if (index < 0) {

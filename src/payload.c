@@ -6,6 +6,7 @@
  */
 
 #include "payload.h"
+#include "error.h"
 #include <string.h>
 
 /// The ID of the next payload, this will be incremented each time the payload_new function is called
@@ -15,6 +16,7 @@ Payload payload_new(PayloadType type, PayloadData *data) {
     Payload payload;
     payload.type = type;
     payload.id = NEXT_MESSAGE_ID++;
+    logfmt("New Payload ID %u", NEXT_MESSAGE_ID);
     if (data) memcpy(&payload.data, data, sizeof(PayloadData));
 
     return payload;
@@ -22,6 +24,9 @@ Payload payload_new(PayloadType type, PayloadData *data) {
 
 static bool is_valid_id(uint8_t ch) {
     return ch == '-'
+        #if DEBUG_F
+        || ch == '.' // Only testing with the reference server
+        #endif
         || (ch >= 'a' && ch <= 'z')
         || (ch >= 'A' && ch <= 'Z')
         || (ch >= '0' && ch <= '9');
@@ -42,8 +47,11 @@ static ssize_t read(uint8_t *dest, const Bytes *src, int limit, Validator valida
     int count = 0;
 
     for (size_t i = 0; i < src->len; i++) {
+        /// If the character is not a valid character for the given validator
         if (!validator(bytes[i])) break;
+        /// Hit limit
         if (count >= limit) return -1;
+        /// else
         count += 1;
     }
 
@@ -56,21 +64,26 @@ static ssize_t read(uint8_t *dest, const Bytes *src, int limit, Validator valida
 }
 
 ssize_t read_username(Username dest, const Bytes *src) {
+    logfmt("Reading username from %s", bytes_get(src));
     return read(dest, src, USERNAME_LEN, is_valid_id);
 }
 
 ssize_t read_channel_id(ChannelID dest, const Bytes *src) {
+    logfmt("Reading channel id from %s", bytes_get(src));
     return read(dest, src, CHANNEL_ID_LEN, is_valid_id);
 }
 
 ssize_t read_secret(Secret dest, const Bytes *src) {
+    logfmt("Reading secret from %s", bytes_get(src));
     return read(dest, src, SECRET_LEN, is_valid_id);
 }
 
 ssize_t read_display_name(DisplayName dest, const Bytes *src) {
+    logfmt("Reading display name from %s", bytes_get(src));
     return read(dest, src, DISPLAY_NAME_LEN, is_valid_display_name);
 }
 
 ssize_t read_message_content(MessageContent dest, const Bytes *src) {
+    logfmt("Reading message content from %s", bytes_get(src));
     return read(dest, src, MESSAGE_CONTENT_LEN, is_valid_message_content);
 }

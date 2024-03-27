@@ -40,7 +40,6 @@ void client_shutdown();
 void client_handle_input();
 void client_handle_socket();
 void client_send(PayloadType, PayloadData *);
-void client_send_confirm(Payload *);
 
 char *CHAT_HELP_MESSAGE = 
 "IPK2024-chat: To start, use /auth to authenticate then use /join to join a channel and now you can start chatting.\n"
@@ -107,6 +106,9 @@ void client_run(Args args) {
         if (ret < 0) {
             // GOT ERROR
             STATE = State_End;
+            if (STATE == State_Start) {
+                break;
+            }
             client_send(PayloadType_Bye, NULL);
             continue;
         }
@@ -181,8 +183,6 @@ void client_handle_socket() {
         return;
     }
 
-    client_send_confirm(&payload);
-
     if (payload.type != PayloadType_Confirm) {
         if (CONNECTION.args.mode == Mode_UDP && bit_field_contains(&RECEIVED_ID, payload.id)) {
             return;
@@ -255,6 +255,7 @@ void client_handle_input() {
 
     if (result == EOF) {
         // shutdown
+        client_send(PayloadType_Bye, NULL);
         STATE = State_End;
         return;
     }
@@ -335,27 +336,13 @@ void client_handle_input() {
 
         case CommandType_Exit:
             STATE = State_End;
+            client_send(PayloadType_Bye, NULL);
             break;
 
     }
 }
 
-void client_send_confirm(Payload *payload) {
-    // Mode other than UDP does not need to send ack
-    // Also does not need confirming the confirm payload
-    if (CONNECTION.args.mode != Mode_UDP || payload->type == PayloadType_Confirm) {
-        return;
-    }
-
-    log("Sending confirm");
-    Payload confirm;
-    confirm.id = payload->id;
-    confirm.type = PayloadType_Confirm;
-    CONNECTION.send(&CONNECTION, confirm);
-}
-
 void client_send(PayloadType type, PayloadData *data) {
-    logfmt("Sending payload type %u", type);
     CURRENT_PAYLOAD.payload = payload_new(type, data);
     CONNECTION.send(&CONNECTION, CURRENT_PAYLOAD.payload);
     
