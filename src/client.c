@@ -1,7 +1,7 @@
 /**
  * @file client.c
  * @author Le Duy Nguyen, xnguye27, VUT FIT
- * @date 14/03/2024
+ * @date 27/03/2024
  * @brief Implementation of client.h
  */
 
@@ -21,6 +21,7 @@
 struct current_payload {
     Payload payload;
     bool got_ack;
+    bool executed;
     int retry_count;
     Timestamp timestamp;
 };
@@ -100,8 +101,15 @@ void client_run(Args args) {
             nof_fds = 1;
         }
 
-        logfmt("Event before poll? %d\n", poll_fds[0].revents & POLLIN);
+        logfmt("Polling with timeout of %d ms", timeout);
         int ret = poll(poll_fds, nof_fds, timeout);
+
+        if (ret < 0) {
+            // GOT ERROR
+            STATE = State_End;
+            client_send(PayloadType_Bye, NULL);
+            continue;
+        }
 
         if (ret == 0) {
             /// TIMEOUT
@@ -113,13 +121,7 @@ void client_run(Args args) {
             }
 
             CONNECTION.send(&CONNECTION, CURRENT_PAYLOAD.payload);
-            continue;
-        }
-
-        if (ret < 0) {
-            // GOT ERROR
-            STATE = State_End;
-            client_send(PayloadType_Bye, NULL);
+            CURRENT_PAYLOAD.timestamp = timestamp_now();
             continue;
         }
 
@@ -128,16 +130,23 @@ void client_run(Args args) {
             client_handle_socket();
         }
 
-        if (poll_fds[1].revents & POLLIN) {
+        if (nof_fds == 2 && poll_fds[1].revents & POLLIN) {
             // GOT USER INPUT
             client_handle_input();
         }
+
+        if (CURRENT_PAYLOAD.got_ack && !CURRENT_PAYLOAD.executed) {
+
+        }
+
+        log("Done a event loop");
     }
 
     client_shutdown();
 }
 
 void client_init(Args args) {
+    log("Initializing client");
     command_setup();
     signal(SIGINT, handle_sigint); 
     RECEIVED_ID = bit_field_new();
@@ -147,22 +156,25 @@ void client_init(Args args) {
     CONNECTION = connection_init(args);
     CONNECTION.connect(&CONNECTION);
     CURRENT_PAYLOAD.got_ack = true;
+    log("Initialized");
 }
 
 void client_shutdown() {
+    log("Shutting down");
     bit_field_free(&RECEIVED_ID);
     connection_close(&CONNECTION);
     command_clean_up();
 }
 
 void client_handle_socket() {
+    log("Start handling incoming packet");
     Payload payload = CONNECTION.receive(&CONNECTION);
 
     if (get_error()) {
         // TODO
     }
 
-    printf("Got payload type %d\n", payload.type);
+    logfmt("Got payload type %d", payload.type);
 
     /// Wait for ack first
     if (!CURRENT_PAYLOAD.got_ack && payload.type != PayloadType_Confirm) {
@@ -181,10 +193,11 @@ void client_handle_socket() {
 
     switch (payload.type) {
         case PayloadType_Confirm:
-            printf("Got here\n");
+            logfmt("Confirming %u", payload.id);
             if (payload.id == CURRENT_PAYLOAD.payload.id) {
                 CURRENT_PAYLOAD.got_ack = true;
                 CURRENT_PAYLOAD.retry_count = 0;
+                log("Confirmed");
             }
             return;
 
@@ -236,6 +249,7 @@ void client_handle_socket() {
 }
 
 void client_handle_input() {
+    log("Start handling user input");
     Bytes buffer = bytes_new();
     int result = readLineStdin(&buffer);
 
@@ -333,6 +347,7 @@ void client_send_confirm(Payload *payload) {
         return;
     }
 
+    log("Sending confirm");
     Payload confirm;
     confirm.id = payload->id;
     confirm.type = PayloadType_Confirm;
@@ -340,6 +355,7 @@ void client_send_confirm(Payload *payload) {
 }
 
 void client_send(PayloadType type, PayloadData *data) {
+    logfmt("Sending payload type %u", type);
     CURRENT_PAYLOAD.payload = payload_new(type, data);
     CONNECTION.send(&CONNECTION, CURRENT_PAYLOAD.payload);
     
