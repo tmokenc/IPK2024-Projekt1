@@ -8,6 +8,25 @@
 #ifndef ERROR_H
 #define ERROR_H
 
+#ifdef DEBUG_F
+
+/**
+ * @brief macro to print out debug string if NDEBUG flag is disabled
+ **/
+#define log(s) fprintf(stderr, "- "__FILE__":%u: "s"\n", __LINE__)
+
+/**
+ * @brief macro to print out debug string formatted (like printf) if NDEBUG flag is disabled
+ **/
+#define logfmt(s, ...) fprintf(stderr, "- "__FILE__":%u: "s"\n",__LINE__,__VA_ARGS__)
+
+#else
+
+#define log(s)
+#define logfmt(s, ...) 
+
+#endif
+
 /**
  * @brief Enumeration of error types.
  */

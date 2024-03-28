@@ -9,7 +9,7 @@
 #include "error.h"
 #include "input.h"
 #include "commands.h"
-#include <poll.h>
+#include <sys/epoll.h>
 #include <string.h>
 #include <unistd.h>
 #include <signal.h> 
@@ -18,9 +18,12 @@
 #include "time.h"
 #include "bit_field.h"
 
+/// Max event of EPOLL
+#define MAX_EVENT 2
+
 struct current_payload {
     Payload payload;
-    bool got_ack;
+    bool confirmed;
     bool executed;
     int retry_count;
     Timestamp timestamp;
@@ -55,7 +58,6 @@ char *CHAT_HELP_MESSAGE =
 "";
 
 enum state STATE = State_Start;
-PayloadType LAST_PAYLOAD_TYPE;
 Connection CONNECTION;
 BitField RECEIVED_ID;
 DisplayName DISPLAY_NAME;
@@ -77,33 +79,58 @@ void client_run(Args args) {
 
     if (get_error()) return;
 
-    struct pollfd poll_fds[2] = {0};
-    
-    poll_fds[0].fd = CONNECTION.sockfd;
-    poll_fds[0].events = POLLIN;
+    int epoll_fd_socket = epoll_create1(0);
+    int epoll_fd_socket_stdin = epoll_create1(0);
 
-    poll_fds[1].fd = STDIN_FILENO;
-    poll_fds[1].events = POLLIN;
+    struct epoll_event events[MAX_EVENT];
 
-    while (!(STATE == State_End && CURRENT_PAYLOAD.got_ack)) {
+    // Add STDIN file descriptor to epoll
+    struct epoll_event event_stdin;
+    event_stdin.events = EPOLLIN;
+    event_stdin.data.fd = STDIN_FILENO;
+    if (epoll_ctl(epoll_fd_socket_stdin, EPOLL_CTL_ADD, STDIN_FILENO, &event_stdin) == -1) {
+        set_error(Error_Internal);
+        perror("ERR: epoll_ctl: stdin");
+        return;
+    }
+
+    // Add socket file descriptor to epolls
+    struct epoll_event event_socket;
+    event_socket.events = EPOLLIN;
+    event_socket.data.fd = CONNECTION.sockfd;
+    if (epoll_ctl(epoll_fd_socket, EPOLL_CTL_ADD, CONNECTION.sockfd, &event_socket) == -1) {
+        set_error(Error_Internal);
+        perror("ERR: epoll_ctl: socket");
+        return;
+    }
+
+    if (epoll_ctl(epoll_fd_socket_stdin, EPOLL_CTL_ADD, CONNECTION.sockfd, &event_socket) == -1) {
+        set_error(Error_Internal);
+        perror("ERR: epoll_ctl: socket");
+        return;
+    }
+
+    while (!(STATE == State_End && CURRENT_PAYLOAD.confirmed)) {
         int timeout = -1;
-        int nof_fds = 2;
+        int epoll_fd = epoll_fd_socket_stdin;
 
         if (STATE == State_Auth) {
-            nof_fds = 1;
+            // When in state AUTH, does not need to poll for the stdin
+            epoll_fd = epoll_fd_socket;
         }
 
-        if (!CURRENT_PAYLOAD.got_ack) {
+        if (!CURRENT_PAYLOAD.confirmed) {
             timeout = CONNECTION.args.udp_timeout - timestamp_elapsed(CURRENT_PAYLOAD.timestamp);
             /// Very rare case but better safe than sorry
             if (timeout < 0) timeout = 0;
-            nof_fds = 1;
+            // While waiting for CONFIRM, does not need to poll for the stdin
+            epoll_fd = epoll_fd_socket;
         }
 
         logfmt("Polling with timeout of %d ms", timeout);
-        int ret = poll(poll_fds, nof_fds, timeout);
+        int num_fds = epoll_wait(epoll_fd, events, MAX_EVENT, timeout);
 
-        if (ret < 0) {
+        if (num_fds < 0) {
             // GOT ERROR
             STATE = State_End;
             if (STATE == State_Start) {
@@ -113,7 +140,7 @@ void client_run(Args args) {
             continue;
         }
 
-        if (ret == 0) {
+        if (num_fds == 0) {
             /// TIMEOUT
             
             if (++CURRENT_PAYLOAD.retry_count > CONNECTION.args.udp_retransmissions) {
@@ -127,18 +154,14 @@ void client_run(Args args) {
             continue;
         }
 
-        if (poll_fds[0].revents & POLLIN) {
-            // GOT MESSAGE FROM SERVER
-            client_handle_socket();
-        }
-
-        if (nof_fds == 2 && poll_fds[1].revents & POLLIN) {
-            // GOT USER INPUT
-            client_handle_input();
-        }
-
-        if (CURRENT_PAYLOAD.got_ack && !CURRENT_PAYLOAD.executed) {
-
+        for (int i = 0; i < num_fds; i++) {
+            if (events[i].data.fd == CONNECTION.sockfd) {
+                // GOT MESSAGE FROM SERVER
+                client_handle_socket();
+            } else if (events[i].data.fd == STDIN_FILENO) {
+                // GOT USER INPUT
+                client_handle_input();
+            }
         }
 
         log("Done a event loop");
@@ -157,7 +180,7 @@ void client_init(Args args) {
 
     CONNECTION = connection_init(args);
     CONNECTION.connect(&CONNECTION);
-    CURRENT_PAYLOAD.got_ack = true;
+    CURRENT_PAYLOAD.confirmed = true;
     log("Initialized");
 }
 
@@ -178,8 +201,8 @@ void client_handle_socket() {
 
     logfmt("Got payload type %d", payload.type);
 
-    /// Wait for ack first
-    if (!CURRENT_PAYLOAD.got_ack && payload.type != PayloadType_Confirm) {
+    /// Wait for CONFIRM first if the last payload was not confirmed
+    if (!CURRENT_PAYLOAD.confirmed && payload.type != PayloadType_Confirm) {
         return;
     }
 
@@ -195,7 +218,7 @@ void client_handle_socket() {
         case PayloadType_Confirm:
             logfmt("Confirming %u", payload.id);
             if (payload.id == CURRENT_PAYLOAD.payload.id) {
-                CURRENT_PAYLOAD.got_ack = true;
+                CURRENT_PAYLOAD.confirmed = true;
                 CURRENT_PAYLOAD.retry_count = 0;
                 log("Confirmed");
             }
@@ -285,6 +308,7 @@ void client_handle_input() {
             strcpy((void *)data.message.message_content, (void *)cmd.data.message);
 
             client_send(PayloadType_Message, &data);
+            printf("%s: %s\n", DISPLAY_NAME, data.message.message_content);
             break;
         }
 
@@ -350,6 +374,6 @@ void client_send(PayloadType type, PayloadData *data) {
         // TODO
     }
     
-    CURRENT_PAYLOAD.got_ack = CONNECTION.args.mode == Mode_TCP;
+    CURRENT_PAYLOAD.confirmed = CONNECTION.args.mode == Mode_TCP;
     CURRENT_PAYLOAD.timestamp = timestamp_now();
 }
