@@ -43,9 +43,9 @@ Payload udp_receive(Connection *conn) {
     Bytes buffer = bytes_new();
 
     struct sockaddr *address = conn->address_info->ai_addr;
-    socklen_t address_len = conn->address_info->ai_addrlen;
+    socklen_t *address_len = &conn->address_info->ai_addrlen;
     int flags = 0;
-    ssize_t bytes_rx = recvfrom(conn->sockfd, buffer.data, BYTES_SIZE, flags, address, &address_len);
+    ssize_t bytes_rx = recvfrom(conn->sockfd, buffer.data, BYTES_SIZE, flags, address, address_len);
 
     if (bytes_rx < 0) {
         set_error(Error_Connection);

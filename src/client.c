@@ -38,8 +38,9 @@ enum state {
     State_EndWithoutBye,
 };
 
-void client_init(Args);
+void client_init(Args args);
 void client_shutdown();
+bool client_handle_timeout();
 void client_handle_input();
 void client_handle_socket();
 void client_send(PayloadType, PayloadData *);
@@ -62,6 +63,7 @@ Connection CONNECTION;
 BitField RECEIVED_ID;
 DisplayName DISPLAY_NAME;
 struct current_payload CURRENT_PAYLOAD;
+int EPOLL_FD_SOCKET, EPOLL_FD_SOCKET_STDIN;
 
 void handle_sigint(int sig) { 
     logfmt("Get signal %u", sig);
@@ -77,46 +79,19 @@ void handle_sigint(int sig) {
 void client_run(Args args) {
     client_init(args);
 
-    if (get_error()) return;
-
-    int epoll_fd_socket = epoll_create1(0);
-    int epoll_fd_socket_stdin = epoll_create1(0);
+    if (get_error()) {
+        client_shutdown();
+    }
 
     struct epoll_event events[MAX_EVENT];
 
-    // Add STDIN file descriptor to epoll
-    struct epoll_event event_stdin;
-    event_stdin.events = EPOLLIN;
-    event_stdin.data.fd = STDIN_FILENO;
-    if (epoll_ctl(epoll_fd_socket_stdin, EPOLL_CTL_ADD, STDIN_FILENO, &event_stdin) == -1) {
-        set_error(Error_Internal);
-        perror("ERR: epoll_ctl: stdin");
-        return;
-    }
-
-    // Add socket file descriptor to epolls
-    struct epoll_event event_socket;
-    event_socket.events = EPOLLIN;
-    event_socket.data.fd = CONNECTION.sockfd;
-    if (epoll_ctl(epoll_fd_socket, EPOLL_CTL_ADD, CONNECTION.sockfd, &event_socket) == -1) {
-        set_error(Error_Internal);
-        perror("ERR: epoll_ctl: socket");
-        return;
-    }
-
-    if (epoll_ctl(epoll_fd_socket_stdin, EPOLL_CTL_ADD, CONNECTION.sockfd, &event_socket) == -1) {
-        set_error(Error_Internal);
-        perror("ERR: epoll_ctl: socket");
-        return;
-    }
-
     while (!(STATE == State_End && CURRENT_PAYLOAD.confirmed)) {
         int timeout = -1;
-        int epoll_fd = epoll_fd_socket_stdin;
+        int epoll_fd = EPOLL_FD_SOCKET_STDIN;
 
         if (STATE == State_Auth) {
             // When in state AUTH, does not need to poll for the stdin
-            epoll_fd = epoll_fd_socket;
+            epoll_fd = EPOLL_FD_SOCKET;
         }
 
         if (!CURRENT_PAYLOAD.confirmed) {
@@ -124,7 +99,7 @@ void client_run(Args args) {
             /// Very rare case but better safe than sorry
             if (timeout < 0) timeout = 0;
             // While waiting for CONFIRM, does not need to poll for the stdin
-            epoll_fd = epoll_fd_socket;
+            epoll_fd = EPOLL_FD_SOCKET;
         }
 
         logfmt("Polling with timeout of %d ms", timeout);
@@ -142,15 +117,11 @@ void client_run(Args args) {
 
         if (num_fds == 0) {
             /// TIMEOUT
-            
-            if (++CURRENT_PAYLOAD.retry_count > CONNECTION.args.udp_retransmissions) {
-                /// Consider disconnected
-                STATE = State_End;
+            bool should_shutdown = client_handle_timeout();
+            if (should_shutdown) {
                 break;
             }
 
-            CONNECTION.send(&CONNECTION, CURRENT_PAYLOAD.payload);
-            CURRENT_PAYLOAD.timestamp = timestamp_now();
             continue;
         }
 
@@ -167,8 +138,6 @@ void client_run(Args args) {
         log("Done a event loop");
     }
 
-    close(epoll_fd_socket);
-    close(epoll_fd_socket_stdin);
     client_shutdown();
 }
 
@@ -184,13 +153,63 @@ void client_init(Args args) {
     CONNECTION.connect(&CONNECTION);
     CURRENT_PAYLOAD.confirmed = true;
     log("Initialized");
+
+    EPOLL_FD_SOCKET = epoll_create1(0);
+    EPOLL_FD_SOCKET_STDIN = epoll_create1(0);
+
+    if (EPOLL_FD_SOCKET < 0 || EPOLL_FD_SOCKET_STDIN < 0) {
+        set_error(Error_Internal);
+        perror("ERR: epoll_create");
+        return;
+    }
+
+    // Add STDIN file descriptor to epoll
+    struct epoll_event event_stdin;
+    event_stdin.events = EPOLLIN;
+    event_stdin.data.fd = STDIN_FILENO;
+    if (epoll_ctl(EPOLL_FD_SOCKET_STDIN, EPOLL_CTL_ADD, STDIN_FILENO, &event_stdin) == -1) {
+        set_error(Error_Internal);
+        perror("ERR: epoll_ctl: stdin");
+        return;
+    }
+
+    // Add socket file descriptor to epolls
+    struct epoll_event event_socket;
+    event_socket.events = EPOLLIN;
+    event_socket.data.fd = CONNECTION.sockfd;
+    if (epoll_ctl(EPOLL_FD_SOCKET, EPOLL_CTL_ADD, CONNECTION.sockfd, &event_socket) == -1) {
+        set_error(Error_Internal);
+        perror("ERR: epoll_ctl: socket");
+        return;
+    }
+
+    if (epoll_ctl(EPOLL_FD_SOCKET_STDIN, EPOLL_CTL_ADD, CONNECTION.sockfd, &event_socket) == -1) {
+        set_error(Error_Internal);
+        perror("ERR: epoll_ctl: socket");
+        return;
+    }
+
 }
 
 void client_shutdown() {
     log("Shutting down");
+    close(EPOLL_FD_SOCKET);
+    close(EPOLL_FD_SOCKET_STDIN);
     bit_field_free(&RECEIVED_ID);
     connection_close(&CONNECTION);
     command_clean_up();
+}
+
+bool client_handle_timeout() {
+    if (++CURRENT_PAYLOAD.retry_count > CONNECTION.args.udp_retransmissions) {
+        /// Consider disconnected
+        STATE = State_End;
+        return true;
+    }
+    
+    CONNECTION.send(&CONNECTION, CURRENT_PAYLOAD.payload);
+    CURRENT_PAYLOAD.timestamp = timestamp_now();
+    return false;
 }
 
 void client_handle_socket() {
@@ -198,10 +217,9 @@ void client_handle_socket() {
     Payload payload = CONNECTION.receive(&CONNECTION);
 
     if (get_error()) {
-        // TODO
+        STATE = State_End;
+        return;
     }
-
-    logfmt("Got payload type %d", payload.type);
 
     /// Wait for CONFIRM first if the last payload was not confirmed
     if (!CURRENT_PAYLOAD.confirmed && payload.type != PayloadType_Confirm) {
@@ -335,7 +353,7 @@ void client_handle_input() {
         case CommandType_Join: {
             if (STATE != State_Open) {
                 fprintf(stderr, "ERR: Use /auth to authenticate first before joining a channel. "
-                                "Use /help for more information.");
+                                "Use /help for more information.\n");
                 break;
             }
 
