@@ -50,7 +50,7 @@ char *CHAT_HELP_MESSAGE =
 "The message will be sent line by line\n"
 "\n"
 "Commands:\n"
-"/auth {username} {display_name} {secret} - start the program with this, authenticated {username} using {secret}, if success, you can start chatting under {display_name}\n"
+"/auth {username} {secret} {display_name} - start the program with this, authenticated {username} using {secret}, if success, you can start chatting under {display_name}\n"
 "/join {channel_id}\n"
 "/rename {display_name} - use to new {display_name} instead\n"
 "/help - to show this message\n"
@@ -167,6 +167,8 @@ void client_run(Args args) {
         log("Done a event loop");
     }
 
+    close(epoll_fd_socket);
+    close(epoll_fd_socket_stdin);
     client_shutdown();
 }
 

@@ -33,14 +33,15 @@
 typedef enum {
     Error_None, /**< No error. */
     Error_OutOfMemory, /**< Out of memory error. */
-    Error_StackOverflow, /**< Stack overflow error. */
+    Error_StackOverflow,
     Error_InvalidArgument, /**< Invalid argument error. */
     Error_DuplicatedArgument, /**< Duplicated argument error. */
     Error_Socket, /**< Socket-related error. */
     Error_Connection, /**< Connection-related error. */
     Error_InvalidPayload, /**< Invalid payload error. */
     Error_BadQuery, /**< Bad query error. */
-    Error_InvalidInput /**< Invalid input error. */
+    Error_InvalidInput, /**< Invalid input error. */
+    Error_Internal /**< Internal error*/
 } Error;
 
 /**
