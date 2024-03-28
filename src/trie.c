@@ -19,7 +19,6 @@ Trie *trie_new(ToIndexFunc func) {
         return NULL;
     }
 
-    logfmt("Allocating %lu bytes for trie", sizeof(Trie));
     memset(trie, 0, sizeof(Trie));
     trie->to_index = func;
     trie->value = -1;
