@@ -104,6 +104,7 @@ void client_run(Args args) {
 
         logfmt("Polling with timeout of %d ms", timeout);
         int num_fds = epoll_wait(epoll_fd, events, MAX_EVENT, timeout);
+        logfmt("Polled with %d fds", num_fds);
 
         if (num_fds < 0) {
             // GOT ERROR
@@ -111,6 +112,7 @@ void client_run(Args args) {
             if (STATE == State_Start) {
                 break;
             }
+
             client_send(PayloadType_Bye, NULL);
             continue;
         }
@@ -135,7 +137,14 @@ void client_run(Args args) {
             }
         }
 
+        if (STATE == State_Error && CURRENT_PAYLOAD.confirmed) {
+            client_send(PayloadType_Bye, NULL);
+            STATE = State_End;
+        }
+
         log("Done a event loop");
+        fflush(stdout);
+        fflush(stderr);
     }
 
     client_shutdown();
@@ -216,8 +225,19 @@ void client_handle_socket() {
     log("Start handling incoming packet");
     Payload payload = CONNECTION.receive(&CONNECTION);
 
+    if (get_error() == Error_RecvFromWrongAddress) {
+        error_clear();
+        return;
+    }
+
     if (get_error()) {
-        STATE = State_End;
+        error_clear();
+        fprintf(stderr, "ERR: Received malformed payload\n");
+        PayloadData data = {0};
+        memcpy(data.err.display_name, DISPLAY_NAME, DISPLAY_NAME_LEN + 1);
+        strcpy((void *)data.err.message_content, "Received malformed payload");
+        client_send(PayloadType_Err, &data);
+        STATE = State_Error;
         return;
     }
 
@@ -228,6 +248,7 @@ void client_handle_socket() {
 
     if (payload.type != PayloadType_Confirm) {
         if (CONNECTION.args.mode == Mode_UDP && bit_field_contains(&RECEIVED_ID, payload.id)) {
+            log("Received duplicated packed");
             return;
         } else {
             bit_field_insert(&RECEIVED_ID, payload.id);
@@ -251,7 +272,7 @@ void client_handle_socket() {
             memcpy(data.err.display_name, DISPLAY_NAME, DISPLAY_NAME_LEN + 1);
             strcpy((void *)data.err.message_content, "Received malformed payload");
             client_send(PayloadType_Err, &data);
-            STATE = State_End;
+            STATE = State_Error;
             break;
         }
 
@@ -259,6 +280,8 @@ void client_handle_socket() {
             if (STATE != State_Auth && STATE != State_Open) {
                 return;
             }
+
+            logfmt("Got reply to %d", payload.data.reply.ref_message_id);
 
             if (payload.data.reply.result) {
                 fprintf(stderr, "Success: ");
@@ -269,6 +292,7 @@ void client_handle_socket() {
             }
 
             fprintf(stderr, "%s\n", payload.data.reply.message_content);
+            fflush(stderr);
             break;
 
         case PayloadType_Message:
@@ -276,7 +300,8 @@ void client_handle_socket() {
             break;
 
         case PayloadType_Err:
-            fprintf(stderr, "ERR FROM %s: %s\n", payload.data.message.display_name, payload.data.message.message_content);
+            fprintf(stderr, "ERR FROM %s: %s\n", payload.data.err.display_name, payload.data.err.message_content);
+            client_send(PayloadType_Bye, NULL);
             STATE = State_End;
             break;
 

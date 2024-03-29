@@ -10,6 +10,7 @@
 #include "error.h"
 #include "payload.h"
 #include <netdb.h>
+#include <netinet/in.h>
 #include <string.h>
 
 static size_t read_message_id(const Bytes *bytes, uint16_t *output);
@@ -23,11 +24,21 @@ void udp_connect(Connection *conn) {
 
 void udp_send(Connection *conn, Payload payload) {
     logfmt("Sending payload type %u", payload.type);
-
     Bytes bytes = udp_serialize(&payload);
+
+    #ifdef DEBUG_F
+    const uint8_t *bytes_slice = bytes_get(&bytes);
+    for (size_t i = 0; i < bytes.len; i++) {
+        fprintf(stderr, "0x%02x ", bytes_slice[i]);
+    }
+    fprintf(stderr, "\n");
+    #endif
+
+
     struct sockaddr *address = conn->address_info->ai_addr;
     socklen_t address_len = conn->address_info->ai_addrlen;
     int flags = 0;
+
     ssize_t bytes_tx = sendto(conn->sockfd, bytes.data, bytes.len, flags, address, address_len);
 
     if (bytes_tx != (ssize_t)bytes.len) {
@@ -42,15 +53,27 @@ Payload udp_receive(Connection *conn) {
     Payload payload = {0};
     Bytes buffer = bytes_new();
 
-    struct sockaddr *address = conn->address_info->ai_addr;
-    socklen_t *address_len = &conn->address_info->ai_addrlen;
+    struct sockaddr_in address;
+    socklen_t address_len = sizeof(address);
+
     int flags = 0;
-    ssize_t bytes_rx = recvfrom(conn->sockfd, buffer.data, BYTES_SIZE, flags, address, address_len);
+    ssize_t bytes_rx = recvfrom(conn->sockfd, buffer.data, BYTES_SIZE, flags, (struct sockaddr *)&address, &address_len);
 
     if (bytes_rx < 0) {
         set_error(Error_Connection);
         perror("ERR: Cannot receive packet from server");
     } else {
+        struct sockaddr_in *server_address = (struct sockaddr_in *)conn->address_info->ai_addr;
+
+        logfmt("Port %u", ntohs(address.sin_port));
+        if (memcmp(&address.sin_addr, &server_address->sin_addr, sizeof(address.sin_addr)) != 0) {
+            set_error(Error_RecvFromWrongAddress);
+            return payload;
+        }
+
+        // Change port based on the sender port
+        server_address->sin_port = address.sin_port;
+
         buffer.len = bytes_rx;
         payload = udp_deserialize(buffer);
         
@@ -85,6 +108,7 @@ Bytes udp_serialize(const Payload *payload) {
     if (get_error()) return buffer;
 
     #define PUSH_BYTES(bytes) \
+        logfmt("Pushing %s", bytes); \
         bytes_push_c_str(&buffer, (void *)bytes); \
         bytes_push(&buffer, 0); \
         if (get_error()) return buffer
@@ -98,28 +122,28 @@ Bytes udp_serialize(const Payload *payload) {
             bytes_push(&buffer, payload->data.reply.result);
             bytes_push(&buffer, payload->data.reply.ref_message_id >> 8);
             bytes_push(&buffer, payload->data.reply.ref_message_id & 0xFF);
-            PUSH_BYTES((uint8_t *)payload->data.reply.message_content);
+            PUSH_BYTES(payload->data.reply.message_content);
             break;
 
         case PayloadType_Auth:
-            PUSH_BYTES((uint8_t *)payload->data.auth.username);
-            PUSH_BYTES((uint8_t *)payload->data.auth.display_name);
-            PUSH_BYTES((uint8_t *)payload->data.auth.secret);
+            PUSH_BYTES(payload->data.auth.username);
+            PUSH_BYTES(payload->data.auth.display_name);
+            PUSH_BYTES(payload->data.auth.secret);
             break;
 
         case PayloadType_Join:
-            PUSH_BYTES((uint8_t *)payload->data.join.channel_id);
-            PUSH_BYTES((uint8_t *)payload->data.join.display_name);
+            PUSH_BYTES(payload->data.join.channel_id);
+            PUSH_BYTES(payload->data.join.display_name);
             break;
 
         case PayloadType_Message:
-            PUSH_BYTES((uint8_t *)payload->data.message.display_name);
-            PUSH_BYTES((uint8_t *)payload->data.message.message_content);
+            PUSH_BYTES(payload->data.message.display_name);
+            PUSH_BYTES(payload->data.message.message_content);
             break;
 
         case PayloadType_Err:
-            PUSH_BYTES((uint8_t *)payload->data.message.display_name);
-            PUSH_BYTES((uint8_t *)payload->data.message.message_content);
+            PUSH_BYTES(payload->data.err.display_name);
+            PUSH_BYTES(payload->data.err.message_content);
             break;
     }
 
@@ -190,7 +214,8 @@ Payload udp_deserialize(Bytes buffer) {
             READ(message, display_name);
             READ(message, message_content);
             break;
-        case PayloadType_Err: READ(err, display_name);
+        case PayloadType_Err: 
+            READ(err, display_name);
             READ(err, message_content);
             break;
         case PayloadType_Confirm:
@@ -225,6 +250,7 @@ static size_t read_result(const Bytes *bytes, uint8_t *output) {
         return 0;
     }
 
+    logfmt("Reading result. Got %d", res);
     *output = res;
     return 1;
 }
