@@ -246,13 +246,19 @@ void client_handle_socket() {
         return;
     }
 
+    // confim
+    Payload confirm;
+    confirm.type = PayloadType_Confirm;
+    confirm.id = payload.id;
+    CONNECTION.send(&CONNECTION, confirm);
+
     if (payload.type != PayloadType_Confirm) {
         if (CONNECTION.args.mode == Mode_UDP && bit_field_contains(&RECEIVED_ID, payload.id)) {
             log("Received duplicated packed");
             return;
-        } else {
-            bit_field_insert(&RECEIVED_ID, payload.id);
         }
+
+        bit_field_insert(&RECEIVED_ID, payload.id);
     }
 
     switch (payload.type) {

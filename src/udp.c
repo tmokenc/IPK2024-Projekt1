@@ -78,13 +78,6 @@ Payload udp_receive(Connection *conn) {
         payload = udp_deserialize(buffer);
         
         logfmt("Received payload with ID %u", payload.id);
-        if (payload.type != PayloadType_Confirm) {
-            log("Sending confirm");
-            Payload confirm;
-            confirm.type = PayloadType_Confirm;
-            confirm.id = payload.id;
-            udp_send(conn, confirm);
-        }
     }
 
     return payload;
