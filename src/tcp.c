@@ -96,7 +96,13 @@ void tcp_connect(Connection *conn) {
 }
 
 void tcp_send(Connection *conn, Payload payload) {
+    if (payload.type == PayloadType_Confirm) {
+        /// We do not send confirm in TCP
+        return;
+    }
+    
     Bytes bytes = tcp_serialize(&payload);
+
     if (get_error()) return;
 
     if (send(conn->sockfd, bytes.data, bytes.len, 0) < 0) {
