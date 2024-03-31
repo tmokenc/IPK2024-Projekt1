@@ -39,6 +39,7 @@ typedef enum {
     Error_Socket, /**< Socket-related error. */
     Error_Connection, /**< Connection-related error. */
     Error_InvalidPayload, /**< Invalid payload error. */
+    Error_RecvFromWrongAddress, /**< Receive from a server address we are not listening to. */
     Error_BadQuery, /**< Bad query error. */
     Error_InvalidInput, /**< Invalid input error. */
     Error_Internal /**< Internal error*/

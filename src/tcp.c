@@ -105,6 +105,7 @@ void tcp_send(Connection *conn, Payload payload) {
 
     if (get_error()) return;
 
+    logfmt("Sending message: %s", bytes.data);
     if (send(conn->sockfd, bytes.data, bytes.len, 0) < 0) {
         set_error(Error_Connection);
         perror("ERR: Cannot send packet to the server");

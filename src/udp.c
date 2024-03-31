@@ -62,22 +62,32 @@ Payload udp_receive(Connection *conn) {
     if (bytes_rx < 0) {
         set_error(Error_Connection);
         perror("ERR: Cannot receive packet from server");
-    } else {
-        struct sockaddr_in *server_address = (struct sockaddr_in *)conn->address_info->ai_addr;
+        return payload;
+    }
 
-        logfmt("Port %u", ntohs(address.sin_port));
-        if (memcmp(&address.sin_addr, &server_address->sin_addr, sizeof(address.sin_addr)) != 0) {
-            set_error(Error_RecvFromWrongAddress);
-            return payload;
-        }
+    struct sockaddr_in *server_address = (struct sockaddr_in *)conn->address_info->ai_addr;
 
-        // Change port based on the sender port
-        server_address->sin_port = address.sin_port;
+    if (memcmp(&address.sin_addr, &server_address->sin_addr, sizeof(address.sin_addr)) != 0) {
+        set_error(Error_RecvFromWrongAddress);
+        return payload;
+    }
 
-        buffer.len = bytes_rx;
-        payload = udp_deserialize(buffer);
-        
-        logfmt("Received payload with ID %u", payload.id);
+    // Change port based on the sender port
+    logfmt("Port %u", ntohs(address.sin_port));
+    server_address->sin_port = address.sin_port;
+
+    buffer.len = bytes_rx;
+    payload = udp_deserialize(buffer);
+    
+    logfmt("Received payload with ID %u", payload.id);
+
+    if (bytes_rx >= 3 && payload.type != PayloadType_Confirm) {
+        // confim
+        log("Sending confirm");
+        Payload confirm;
+        confirm.type = PayloadType_Confirm;
+        confirm.id = payload.id;
+        udp_send(conn, confirm);
     }
 
     return payload;
@@ -154,6 +164,12 @@ Payload udp_deserialize(Bytes buffer) {
     size_t read = 0;
     uint8_t type = bytes_get(&buffer)[0];
 
+    payload.type = type;
+    bytes_skip_first_n(&buffer, 1);
+
+    read_message_id(&buffer, &payload.id);
+    bytes_skip_first_n(&buffer, 2);
+
     if (type != PayloadType_Confirm
         && type != PayloadType_Reply
         && type != PayloadType_Auth
@@ -165,12 +181,6 @@ Payload udp_deserialize(Bytes buffer) {
         set_error(Error_InvalidPayload);
         return payload;
     }
-
-    payload.type = type;
-    bytes_skip_first_n(&buffer, 1);
-
-    read_message_id(&buffer, &payload.id);
-    bytes_skip_first_n(&buffer, 2);
 
     #define READ_FUNC(func, output) \
         read = read_##func(&buffer, (void *)output); \

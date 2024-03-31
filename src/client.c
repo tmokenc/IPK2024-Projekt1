@@ -72,6 +72,7 @@ void handle_sigint(int sig) {
     if (STATE == State_Start) {
         STATE = State_EndWithoutBye;
     } else {
+        client_send(PayloadType_Bye, NULL);
         STATE = State_End;
     }
 } 
@@ -81,6 +82,7 @@ void client_run(Args args) {
 
     if (get_error()) {
         client_shutdown();
+        return;
     }
 
     struct epoll_event events[MAX_EVENT];
@@ -225,34 +227,35 @@ void client_handle_socket() {
     log("Start handling incoming packet");
     Payload payload = CONNECTION.receive(&CONNECTION);
 
-    if (get_error() == Error_RecvFromWrongAddress) {
-        error_clear();
-        return;
+    switch (get_error()) {
+        case Error_None:
+            // continue 
+            break;
+
+        case Error_RecvFromWrongAddress:
+            // Just ignore it
+            error_clear();
+            return;
+
+        default: {
+            error_clear();
+            fprintf(stderr, "ERR: Received malformed payload\n");
+            PayloadData data = {0};
+            memcpy(data.err.display_name, DISPLAY_NAME, DISPLAY_NAME_LEN + 1);
+            strcpy((void *)data.err.message_content, "Received malformed payload");
+            client_send(PayloadType_Err, &data);
+            STATE = State_Error;
+            return;
+        }
     }
 
-    if (get_error()) {
-        error_clear();
-        fprintf(stderr, "ERR: Received malformed payload\n");
-        PayloadData data = {0};
-        memcpy(data.err.display_name, DISPLAY_NAME, DISPLAY_NAME_LEN + 1);
-        strcpy((void *)data.err.message_content, "Received malformed payload");
-        client_send(PayloadType_Err, &data);
-        STATE = State_Error;
-        return;
-    }
-
-    /// Wait for CONFIRM first if the last payload was not confirmed
-    if (!CURRENT_PAYLOAD.confirmed && payload.type != PayloadType_Confirm) {
-        return;
-    }
-
-    // confim
-    Payload confirm;
-    confirm.type = PayloadType_Confirm;
-    confirm.id = payload.id;
-    CONNECTION.send(&CONNECTION, confirm);
 
     if (payload.type != PayloadType_Confirm) {
+        /// Wait for CONFIRM first if the last payload was not confirmed
+        if (!CURRENT_PAYLOAD.confirmed) {
+            return;
+        }
+
         if (CONNECTION.args.mode == Mode_UDP && bit_field_contains(&RECEIVED_ID, payload.id)) {
             log("Received duplicated packed");
             return;
