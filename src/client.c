@@ -239,7 +239,7 @@ void client_handle_socket() {
 
         default: {
             error_clear();
-            fprintf(stderr, "ERR: Received malformed payload\n");
+            eprint("Received malformed payload");
             PayloadData data = {0};
             memcpy(data.err.display_name, DISPLAY_NAME, DISPLAY_NAME_LEN + 1);
             strcpy((void *)data.err.message_content, "Received malformed payload");
@@ -344,7 +344,7 @@ void client_handle_input() {
     Command cmd = command_parse(bytes_get(&buffer));
 
     if (get_error()) {
-        fprintf(stderr, "ERR: Cannot parse the input\n");
+        eprint("Cannot parse the input");
         error_clear();
         return;
     }
@@ -352,8 +352,8 @@ void client_handle_input() {
     switch (cmd.type) {
         case CommandType_None: {
             if (STATE != State_Open) {
-                fprintf(stderr, "ERR: You have to join a channel first before sending messages. "
-                                "Use /help for more information.\n");
+                eprint("You have to join a channel first before sending messages. "
+                       "Use /help for more information.\n");
                 break;
             }
 
@@ -368,7 +368,7 @@ void client_handle_input() {
 
         case CommandType_Auth: {
             if (STATE != State_Start) {
-                fprintf(stderr, "ERR: You have been authenticated. No need to do it again\n");
+                eprint("You have been authenticated. No need to do it again\n");
                 break;
             }
 
@@ -386,8 +386,8 @@ void client_handle_input() {
 
         case CommandType_Join: {
             if (STATE != State_Open) {
-                fprintf(stderr, "ERR: Use /auth to authenticate first before joining a channel. "
-                                "Use /help for more information.\n");
+                eprint("Use /auth to authenticate first before joining a channel. "
+                       "Use /help for more information.\n");
                 break;
             }
 

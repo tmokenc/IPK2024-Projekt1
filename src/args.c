@@ -98,7 +98,7 @@ Args parse_args(int argc, char **argv, ProgramMode prg_mode) {
 
                 int num = parse_16bit_number(val);
                 if (num < 0) {
-                    fprintf(stderr, "Port number should be in the range 0 to 65535\n");
+                    eprint("Port number should be in the range 0 to 65535");
                     set_error(Error_InvalidArgument);
                     return args;
                 }
@@ -140,7 +140,7 @@ Args parse_args(int argc, char **argv, ProgramMode prg_mode) {
 
                 int num = parse_16bit_number(val);
                 if (num < 0) {
-                    fprintf(stderr, "UDP confirmation timeout should be in the range 0 to 65535\n");
+                    eprint("UDP confirmation timeout should be in the range 0 to 65535");
                     set_error(Error_InvalidArgument);
                     return args;
                 }
@@ -157,7 +157,7 @@ Args parse_args(int argc, char **argv, ProgramMode prg_mode) {
 
                 int num = parse_16bit_number(val);
                 if (num < 0 || num > UINT8_MAX) {
-                    fprintf(stderr, "UDP confirmation timeout should be in the range 0 to 255\n");
+                    eprint("UDP confirmation timeout should be in the range 0 to 255");
                     set_error(Error_InvalidArgument);
                     return args;
                 }
@@ -176,7 +176,7 @@ Args parse_args(int argc, char **argv, ProgramMode prg_mode) {
     if (!got_host) {
         if (prg_mode == ProgramMode_Client) {
             set_error(Error_InvalidArgument);
-            fprintf(stderr, "Missing hostname. Please use -s <hostname>\n");
+            eprint("Missing hostname. Please use -s <hostname>\n");
         } else {
             strcpy(args.host, "0.0.0.0");
         }
@@ -185,7 +185,7 @@ Args parse_args(int argc, char **argv, ProgramMode prg_mode) {
 
     if (!got_mode && prg_mode == ProgramMode_Client) {
         set_error(Error_InvalidArgument);
-        fprintf(stderr, "Missing connection mode. Please use -t (udp|tcp)\n");
+        eprint("Missing connection mode. Please use -t (udp|tcp)");
     }
 
     return args;

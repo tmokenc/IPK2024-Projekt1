@@ -28,6 +28,16 @@
 #endif
 
 /**
+ * @brief macro to print error message to stdout
+ */
+#define eprint(s) fprintf(stderr, "ERR: " s "\n")
+
+/**
+ * @brief macro to print error message to stdout with formatting like printf
+ */
+#define eprintf(s, ...) fprintf(stderr, "ERR: " s "\n", __VA_ARGS__)
+
+/**
  * @brief Enumeration of error types.
  */
 typedef enum {

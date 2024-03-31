@@ -43,14 +43,14 @@ Connection connection_init(Args args) {
     conn.sockfd = socket(family, type, 0);
 
     if (conn.sockfd <= 0) {
-        fprintf(stderr, "ERR: cannot create socket\n");
+        eprint("cannot create socket");
         set_error(Error_Socket);
         return conn;
     }
 
     int flags = fcntl(conn.sockfd, F_GETFL, 0);
     if (fcntl(conn.sockfd, F_SETFL, flags | O_NONBLOCK) < 0) {
-        fprintf(stderr, "ERR: cannot set socket to be non-blocking\n");
+        eprint("cannot set socket to be non-blocking");
         set_error(Error_Socket);
         return conn;
     }
@@ -70,7 +70,7 @@ Connection connection_init(Args args) {
     int result = getaddrinfo(args.host, port, &hints, &conn.address_info);
 
     if (result != 0) {
-        fprintf(stderr, "ERR: Cannot get the address info of %s\n", args.host);
+        eprintf("Cannot get the address info of %s", args.host);
         set_error(Error_Connection);
         return conn;
     }
@@ -83,6 +83,6 @@ void connection_close(Connection *conn) {
     freeaddrinfo(conn->address_info);
 
     if (close(conn->sockfd) == -1) {
-        fprintf(stderr, "ERR: Cannot close the socket\n");
+        eprint("Cannot close the socket");
     }
 }

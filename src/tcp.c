@@ -88,7 +88,7 @@ void tcp_connect(Connection *conn) {
         perror("ERR: poll");
         set_error(Error_Socket);
     } else if (poll_result == 0) {
-        fprintf(stderr, "ERR: Cannot establish connection to the server within %dms", TCP_CONNECT_TIMEOUT);
+        eprintf("Cannot establish connection to the server within %dms", TCP_CONNECT_TIMEOUT);
         set_error(Error_Socket);
     } else if (fds[0].revents & POLLOUT) {
         // printf("Connected to the server\n");
