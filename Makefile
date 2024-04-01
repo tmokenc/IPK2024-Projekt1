@@ -33,14 +33,12 @@ $(SERVER): $(OBJS)
 server-debug: $(DEBUG_OBJS)
 	$(CC) $(DEBUG_FLAG) $(CFLAGS) -o $(SERVER) $^
 
-
 test: test/main.c $(TEST_OBJS)
 	$(CC) $(CFLAGS) -o $(BUILD_DIR)/test $^ && \
 	./$(BUILD_DIR)/test -v
 
-doc: $(DOCS) doc/refs.bib doc/main_loop_state_machine.dot
-	dot -Tpng doc/main_loop_state_machine.dot -o doc/main_loop_state_machine.png
-	typst c doc/documentation.typ documentation.pdf
+pack: 
+	zip -r xnguye27.zip src/ test/ Makefile CHANGELOG.md README.md LICENSE
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
 	@mkdir -p $(@D)

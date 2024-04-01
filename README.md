@@ -26,6 +26,7 @@ This project implements a chat client for the `IPK24-CHAT` protocol, a protocol 
 - **Language**: C
 - **Author**: Le Duy Nguyen (xnguye27)
 - **OS**: Linux
+- **GIT**: https://git.fit.vutbr.cz/xnguye27/IPK2024-Projekt1
 
 ## Introduction <a id="introduction"></a>
 
