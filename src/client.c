@@ -29,13 +29,15 @@ struct current_payload {
     Timestamp timestamp;
 };
 
+/**
+ * Client state
+ */
 enum state {
     State_Start,
     State_Auth,
     State_Open,
     State_Error,
     State_End,
-    State_EndWithoutBye,
 };
 
 void client_init(Args args);
@@ -69,12 +71,11 @@ void handle_sigint(int sig) {
     logfmt("Get signal %u", sig);
     (void)sig;
 
-    if (STATE == State_Start) {
-        STATE = State_EndWithoutBye;
-    } else {
+    if (STATE != State_Start) {
         client_send(PayloadType_Bye, NULL);
-        STATE = State_End;
     }
+
+    STATE = State_End;
 } 
 
 void client_run(Args args) {
@@ -315,11 +316,11 @@ void client_handle_socket() {
             break;
 
         case PayloadType_Bye:
-            if (STATE == State_Open) {
-                STATE = State_EndWithoutBye;
-            } else {
-                STATE = State_End;
+            if (STATE != State_Open) {
+                client_send(PayloadType_Bye, NULL);
             }
+
+            STATE = State_End;
 
             break;
     }
@@ -425,9 +426,21 @@ void client_send(PayloadType type, PayloadData *data) {
     CONNECTION.send(&CONNECTION, CURRENT_PAYLOAD.payload);
     
     if (get_error()) {
-        // TODO
+        error_clear();
+        PayloadData data;
+        strcpy((void *)data.err.display_name, (char *)DISPLAY_NAME);
+        strcpy((void *)data.err.message_content, "Something went wrong when trying to send payload");
+        CURRENT_PAYLOAD.payload = payload_new(PayloadType_Err, &data);
+        CONNECTION.send(&CONNECTION, CURRENT_PAYLOAD.payload);
+        STATE = State_Error;
     }
     
+    /// If error still occur, then just terminate the programk
+    if (get_error()) {
+        STATE = State_End;
+        return;
+    }
+
     CURRENT_PAYLOAD.confirmed = CONNECTION.args.mode == Mode_TCP;
     CURRENT_PAYLOAD.timestamp = timestamp_now();
 }
