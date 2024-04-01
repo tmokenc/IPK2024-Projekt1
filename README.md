@@ -1,6 +1,27 @@
-## IPK2024-Projekt1
+## Table of Contents
++ [IPK2024-Projekt1](#ipk2024-projekt1)
++ [Introduction](#introduction)
+  - [Protocol](#protocol)
+    - [TCP (Transmission Control Protocol)](#tcp)
+    - [UDP (User Datagram Protocol)](#udp)
++ [Implementation](#implementation)
+  - [Modules](#modules)
+    - [Data Structures](#data-structures)
+    - [Main Program](#main-program)
+    - [Client Program](#client-program)
++ [Decision Making](#decision-making)
+  - [Returning Error Code on ERR Sent by Server](#returning-error-code-on-err-sent-by-server)
+  - [Validate User Input](#validate-user-input)
++ [Testing](#testing)
+  - [Unit Tests](#unit-tests)
+  - [Dynamic Testing](#dynamic-testing)
+    - [Scenarios](#scenarios)
++ [Note](#note)
++ [Bibliography](#bibliography)
 
-This project is about making a client for a chat app that utilize the IPK2024chat protocol.
+## IPK2024-Projekt1 <a id="ipk2024-projekt1"></a>
+
+This project implements a chat client for the `IPK24-CHAT` protocol, a protocol on application layer which relies on UDP/TCP protocols. The protocol's specification can be found [here](https://git.fit.vutbr.cz/NESFIT/IPK-Projects-2024/src/branch/master/Project%201). 
 
 - **Language**: C
 - **Author**: Le Duy Nguyen (xnguye27)
@@ -8,9 +29,6 @@ This project is about making a client for a chat app that utilize the IPK2024cha
 
 ## Introduction <a id="introduction"></a>
 
-This project implements a chat client for the IPK24chat protocol, which relies on UDP/TCP protocols. The protocol's specification can be found [here](https://git.fit.vutbr.cz/NESFIT/IPK-Projects-2024/src/branch/master/Project%201). 
-
-### Protocol
 A networking protocol is a set of rules and conventions that govern communication between devices within a network. It defines how data is transmitted, received, and processed, ensuring seamless interaction between different systems. This project will utilize two of the most famous protocols currently operating on the internet: UDP and TCP.
 
 #### TCP (Transmission Control Protocol) <a id="tcp"></a>
@@ -31,51 +49,46 @@ Key features of UDP include:
 - **Unreliable delivery**: UDP does not handle packet loss or data correction.
 - **Low overhead**: UDP has minimal overhead compared to TCP, making it more efficient for applications that require fast data transmission and can tolerate some packet loss.
 
-## Implementation <a id="implementation-details"></a>
+## Implementation <a id="implementation"></a>
 The implementation can be located in the `src/` directory, and it can be compiled using `make`.
 
 The program is organized into modules, each responsible for handling specific tasks, which enhances the program's structure and facilitates testing.
 
-### Modules
+### Modules <a id="modules"></a>
 Each module comprises a header file (.h) and an implementation file (.c).
 
-#### Data Structures
-The client utilizes several data structures:
-
-- **bytes**: Manages a byte slice on the stack, enabling operations like trimming, appending, and skipping bytes.
+- **bytes**: Manages a byte slice, enabling operations like trimming, appending, and skipping bytes.
     - The program utilizes a byte statically allocated with a maximum capacity of 1500 characters. This limitation is intentional, aligning with the protocol's design to prevent data fragmentation during transport, as the protocol aims to keep packet sizes within the 1500-byte threshold.
 - **trie**: An optimized data structure for matching byte sequence prefixes with a cost of memory space.
 - **bit_field**: A memory-efficient structure for storing numbers and verifying their existence quickly.
-
-####
 - **args**: Parses command-line arguments.
 - **error**: Handles errors within the program.
 - **connection**: Defines the interface for client-server communication, abstracting away the underlying protocol details.
     - The interface consists of 4 main functions:
-        - connect(Connection *): Establishes a connection with the server if necessary.
-        - send(Connection *, Payload): Sends a payload to the server.
-        - receive(Connection *) -> Payload: Retrieves a payload from the server.
-        - disconnect(Connection *): Terminates the connection if needed.
+        - `connect(Connection *)`: Establishes a connection with the server if necessary.
+        - `send(Connection *, Payload)`: Sends a payload to the server.
+        - `receive(Connection *) -> Payload`: Retrieves a payload from the server.
+        - `disconnect(Connection *)`: Terminates the connection if needed.
 - **tcp**: Implements TCP-based communication using the `Connection` interface.
     - Utilizes the *trie* for efficient payload type determination.
 - **udp**: Implements UDP-based communication using the `Connection` interface.
-    - Automatically sends a confirmation payload if the received data type isn't CONFIRM.
+    - Automatically sends a confirmation payload if the received data type isn't `CONFIRM`.
 - **commands**: Parses user input into a structured `Command` format.
     - Utilizes the *trie* to quickly identify command types.
 - **input**: Provides functionality to read input line by line from stdin.
 - **payload**: Defines a universal structure for communication payloads, facilitating easy interpretation regardless of the underlying protocol.
 - **time**: Offers functions for time-related operations, used primarily for timeout handling during UDP communication.
 
-#### Main Program
+#### Main Program <a id="main-program"></a>
 The core program logic resides in `main.c`, `client.c|h`, and `server.c|h`. Currently, `server.c|h` act as a placeholder for forthcoming project components.
 
 The main function is responsible for parsing command-line arguments as per the specification and subsequently delegates further handling to the client.
 
-#### Client Program
+#### Client Program <a id="client-program"></a>
 + **Initialization**: The client initializes various components. Failure in any of these components leads to immediate program termination.
     - Initiates the connection.
     - Sets up command handling from user input (stdin).
-    - Registers a signal handler for SIGINT, ensuring graceful termination by sending a BYE message if not already in the Start state.
+    - Registers a signal handler for `SIGINT`, ensuring graceful termination by sending a BYE message if not already in the Start state.
     - Initializes a bit field for tracking processed message IDs.
         - This field is redundant in TCP mode but remains for simplicity and avoids potential issues.
     - Creates two `epoll` file descriptors, one for socket monitoring and the other for monitoring both socket and stdin.
@@ -98,10 +111,13 @@ The main function is responsible for parsing command-line arguments as per the s
 
 + **Clean Up**: Performs necessary cleanup of initialized data before program termination.
 
-## Decision Making
+## Decision Making <a id="decision-making"></a>
 During the development process, several key decisions were made to guide the implementation of the program.
 
-### Validate user input
+### Not Returning Error Code on ERR Sent by Server <a id="returning-error-code-on-err-sent-by-server"></a>
+When an `ERR` is received from the server, it is recommended that the client accepts it, responds with a `BYE` message, and terminates the program with a **return code of 0**. This approach indicates that the issue is with the external service and not with the client program.
+
+### Validate User Input <a id="validate-user-input"></a>
 The principle of **"Never trust user input"** is fundamental in software development, especially in client-server applications where security is paramount. Validating user inputs on the server side is essential to mitigate vulnerabilities and ensure system integrity.
 
 On the client side, three approaches to validating user input were considered, each with its own implications:
@@ -123,7 +139,7 @@ For this project, the decision was made to **fully validate** user inputs for th
 - The reference server used for testing imposes rate limits, making prompt validation beneficial.
 - The implementation can be easily adapted to partial or no validation if necessary.
 
-## Testing
+## Testing <a id="testing"></a>
 Testing plays a significant role in the development process, ensuring the correctness and functionality of the program's building blocks.
 
 The program was tested on my system with the following specifications:
@@ -133,10 +149,10 @@ The program was tested on my system with the following specifications:
 
 All outputs aligned with their expected results at the time of testing.
 
-### Unit Tests
+### Unit Tests <a id="unit-tests"></a>
 Unit tests are conducted using the [`greatest` testing framework](https://github.com/silentbicycle/greatest) by Scott Vokes, validating various components of the chat client's functionality. These tests, located in the `/test` directory, cover modules with functions independent of others, such as UDP/TCP de/serialization, command parsing, and argument parsing. They can be executed using the `make test` command.
 
-### Dynamic Testing
+### Dynamic Testing <a id="dynamic-testing"></a>
 Dynamic testing involves observing the program's behavior while it is running. 
 
 Initially, `netcat` and `Wireshark` are used to monitor data transmissions between the client and server. 
@@ -146,7 +162,7 @@ a small script is employed to simulate communication between client and server. 
 
 Testing is conducted using White Box Testing, allowing inspection of the program's inner state at any given time.
 
-#### Scenarios
+#### Scenarios <a id="scenarios"></a>
 These scenarios are verified for both TCP and UDP protocols. In UDP, tests include `CONFIRM` payload from/to the server.
 
 | Scenario | Input | Expected Output |
@@ -185,7 +201,9 @@ Scenarios specific to UDP protocol:
 | Receive duplicated payload | - Server sends 2 or more payloads with the same ID | - Send CONFIRM to all of them<br>- Only output the first one |
 | Receive duplicated CONFIRM | - Server sends 2 or more CONFIRM of the same ID | - Ignore from the second CONFIRM |
 
-## Bibliography
+## Note <a id="note"></a>
+This document was done with the help of [Deepl Write](https://www.deepl.com/write).
+## Bibliography <a id="bibliography"></a>
 [IAL]
 Prof. Ing.Jan M Honzík, CSc.
 ALGORITMY IAL Studijní opora. 
