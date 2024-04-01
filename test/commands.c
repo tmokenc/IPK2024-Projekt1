@@ -60,14 +60,14 @@ TEST no_command() {
 }
 
 TEST parse_auth() {
-    uint8_t data1[] = "/auth hello tmokenc tomoka";
-    uint8_t data2[] = "/auth user-name display_name sec-Ret";
+    uint8_t data1[] = "/auth hello tomoka tmokenc";
+    uint8_t data2[] = "/auth user-name sec-Ret display_name ";
 
     CHECK_CALL(auth_cmd_test(data1, "hello", "tmokenc", "tomoka"));
     CHECK_CALL(auth_cmd_test(data2, "user-name", "display_name", "sec-Ret"));
 
     CHECK_CALL(invalid_command("/auth username secret"));
-    CHECK_CALL(invalid_command("/auth username displayname secr_et"));
+    CHECK_CALL(invalid_command("/auth username secr_et displayname"));
     CHECK_CALL(invalid_command("/auth display_name username secret "));
     CHECK_CALL(invalid_command("/auth"));
     CHECK_CALL(invalid_command("/auth "));
