@@ -154,11 +154,12 @@ These scenarios are verified for both TCP and UDP protocols. In UDP, tests inclu
 | Join before AUTH | - Client sends JOIN | - Error message |
 | Invalid command | - /randomCommand | - Error message |
 | Correct AUTH | - Client sends valid AUTH | - Receive REPLY with OK |
-| Incorrect AUTH | - Client sends invalid AUTH | - Receive REPLY with NOK<br>- Client's state changes to Start |
-| Incorrect AUTH then correct AUTH | - Client sends invalid AUTH<br>- Client sends valid AUTH | - Receive REPLY with NOK<br>- Client's state changes to Start<br>- Receive REPLY with OK<br>- Client's state changes to `Open` |
+| Incorrect AUTH | - Client sends invalid AUTH | - Receive REPLY with NOK<br>- Client's state changes to NotAuth |
+| Incorrect AUTH then correct AUTH | - Client sends invalid AUTH<br>- Client sends valid AUTH | - Receive REPLY with NOK<br>- Client's state changes to NotAuth<br>- Receive REPLY with OK<br>- Client's state changes to `Open` |
 | Multiple AUTH | - Client sends valid AUTH<br>- Client sends valid AUTH | - Receive REPLY with OK<br>- Client's state changes to `Open`<br>- Error message on the next AUTH command |
 | Message before AUTH | - Client sends message | - Error message |
 | Exit before AUTH | - SIGINT | - Client terminates without sending BYE to the server |
+| Exit after incorrect AUTH | - Client sends incorrect AUTH<br>- Server reply with NOK<br>- SIGINT | - Client send BYE and then terminates |
 | Error before REPLY | - Client sends AUTH<br>- Server sends ERR | - Send `BYE` to the server and then terminate the program |
 
 Assuming the user has authorized and the client is in the `Open` state:

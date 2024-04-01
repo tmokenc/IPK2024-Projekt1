@@ -34,6 +34,7 @@ struct current_payload {
  */
 enum state {
     State_Start,
+    State_NotAuth,
     State_Auth,
     State_Open,
     State_Error,
@@ -298,7 +299,7 @@ void client_handle_socket() {
                 STATE = State_Open;
             } else {
                 fprintf(stderr, "Failure: ");
-                if (STATE == State_Auth) STATE = State_Start;
+                if (STATE == State_Auth) STATE = State_NotAuth;
             }
 
             fprintf(stderr, "%s\n", payload.data.reply.message_content);
@@ -368,7 +369,7 @@ void client_handle_input() {
         }
 
         case CommandType_Auth: {
-            if (STATE != State_Start) {
+            if (STATE != State_Start && STATE != State_NotAuth) {
                 eprint("You have been authenticated. No need to do it again\n");
                 break;
             }
