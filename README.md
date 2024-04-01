@@ -170,7 +170,7 @@ Initially, `netcat` and `Wireshark` are used to monitor data transmissions betwe
 Once communication stability is achieved, signifying correctness relying on the type of data the client should send to the server at a given time/state, 
 a small script is employed to simulate communication between client and server. This script defines multiple test scenarios and checks the input/output of the client to validate program correctness. 
 
-Testing is conducted using White Box Testing, allowing inspection of the program's inner state at any given time.
+Testing is conducted using White Box Testing, which means that the internal structure is known, allowing inspection of the program's inner state at any given time.
 
 #### Scenarios <a id="scenarios"></a>
 These scenarios are verified for both TCP and UDP protocols. In UDP, tests include `CONFIRM` payload from/to the server.
@@ -218,7 +218,7 @@ This document was done with the help of [Deepl Write](https://www.deepl.com/writ
 [IAL]
 Prof. Ing.Jan M Honzík, CSc.
 ALGORITMY IAL Studijní opora. 
-2024.
+2014.
 [cited 2024-03-31]
 
 [RFC9293] 
