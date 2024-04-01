@@ -72,8 +72,9 @@ Each module comprises a header file (.h) and an implementation file (.c).
         - `disconnect(Connection *)`: Terminates the connection if needed.
 - **tcp**: Implements TCP-based communication using the `Connection` interface.
     - Utilizes the *trie* for efficient payload type determination.
+    - Sending payload type `CONFIRM` does not do anything.
 - **udp**: Implements UDP-based communication using the `Connection` interface.
-    - Automatically sends a confirmation payload if the received data type isn't `CONFIRM`.
+    - The Client is responsible for sending `CONFIRM` on the received data.
 - **commands**: Parses user input into a structured `Command` format.
     - Utilizes the *trie* to quickly identify command types.
 - **input**: Provides functionality to read input line by line from stdin.

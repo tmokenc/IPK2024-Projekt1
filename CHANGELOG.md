@@ -17,8 +17,8 @@
         - [x] NextTimeout
         - [x] Serialize payload
         - [X] Deserialize payload
-- [ ] Client
-    - [ ] Main loops
+- [x] Client
+    - [x] Main loops
     - [x] Commands
         - [x] Command Parser
         - [x] Auth
@@ -35,5 +35,5 @@
     - [X] UDP
 
 # Limitation
-- When `REPLY` came before `CONFIRM` of the `AUTH` request in UDP variant, it accept that as the `AUTH` as been successfully delivered to the server. This is an vulnerbility on confidential and availbility and may cause some serious exploits if it is use outside of a school project.
--
+- In the UDP variant, if the last packet has not been confirmed, all incoming packets that are not of type CONFIRM are completely ignored, even if they have been successfully delivered. It is expected that the server should send CONFIRM on the last payload first. After a few retransmissions following CONFIRM, the message should arrive. However, in rare cases, subsequent retransmissions may be lost, causing the server to send an ERR message and the client to terminate the program. This can be confusing for the user.
+- Not all errors are handled properly.

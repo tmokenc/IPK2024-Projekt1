@@ -17,7 +17,7 @@ static size_t read_message_id(const Bytes *bytes, uint16_t *output);
 static size_t read_result(const Bytes *bytes, uint8_t *output);
 
 void udp_connect(Connection *conn) {
-    // since it's UDP, it does not have to establish a connection to the server
+    // UDP is connectionless protocol, it does not have to establish a connection to the server
     (void)conn;
     log("Connected");
 }
@@ -65,8 +65,10 @@ Payload udp_receive(Connection *conn) {
         return payload;
     }
 
+    // Address of the server
     struct sockaddr_in *server_address = (struct sockaddr_in *)conn->address_info->ai_addr;
 
+    // Check if the incoming packet is from the same address
     if (memcmp(&address.sin_addr, &server_address->sin_addr, sizeof(address.sin_addr)) != 0) {
         set_error(Error_RecvFromWrongAddress);
         return payload;
@@ -80,22 +82,12 @@ Payload udp_receive(Connection *conn) {
     payload = udp_deserialize(buffer);
     
     logfmt("Received payload with ID %u", payload.id);
-
-    if (bytes_rx >= 3 && payload.type != PayloadType_Confirm) {
-        // confim
-        log("Sending confirm");
-        Payload confirm;
-        confirm.type = PayloadType_Confirm;
-        confirm.id = payload.id;
-        udp_send(conn, confirm);
-    }
-
     return payload;
 }
 
 void udp_disconnect(Connection *conn) {
     log("Disconnected");
-    // same as udp_connect
+    // UDP is connectionless, it does not require any disconnection process.
     (void)conn;
 }
 
