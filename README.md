@@ -43,6 +43,7 @@ Each module comprises a header file (.h) and an implementation file (.c).
 The client utilizes several data structures:
 
 - **bytes**: Manages a byte slice on the stack, enabling operations like trimming, appending, and skipping bytes.
+    - The program utilizes a byte statically allocated with a maximum capacity of 1500 characters. This limitation is intentional, aligning with the protocol's design to prevent data fragmentation during transport, as the protocol aims to keep packet sizes within the 1500-byte threshold.
 - **trie**: An optimized data structure for matching byte sequence prefixes with a cost of memory space.
 - **bit_field**: A memory-efficient structure for storing numbers and verifying their existence quickly.
 
@@ -125,8 +126,15 @@ For this project, the decision was made to **fully validate** user inputs for th
 ## Testing
 Testing plays a significant role in the development process, ensuring the correctness and functionality of the program's building blocks.
 
+The program was tested on my system with the following specifications:
+- CPU: Intel i5 1240P
+- OS: Manjaro
+- Kernel version: 6.6
+
+All outputs aligned with their expected results at the time of testing.
+
 ### Unit Tests
-Unit tests are conducted using the `greatest` testing framework, validating various components of the chat client's functionality. These tests, located in the `/test` directory, cover modules with functions independent of others, such as UDP/TCP de/serialization, command parsing, and argument parsing. They can be executed using the `make test` command.
+Unit tests are conducted using the [`greatest` testing framework](https://github.com/silentbicycle/greatest) by Scott Vokes, validating various components of the chat client's functionality. These tests, located in the `/test` directory, cover modules with functions independent of others, such as UDP/TCP de/serialization, command parsing, and argument parsing. They can be executed using the `make test` command.
 
 ### Dynamic Testing
 Dynamic testing involves observing the program's behavior while it is running. 
@@ -141,7 +149,7 @@ Testing is conducted using White Box Testing, allowing inspection of the program
 #### Scenarios
 These scenarios are verified for both TCP and UDP protocols. In UDP, tests include `CONFIRM` payload from/to the server.
 
-| Scenario | Input | Output |
+| Scenario | Input | Expected Output |
 |----------|-------|--------|
 | Join before AUTH | - Client sends JOIN | - Error message |
 | Invalid command | - /randomCommand | - Error message |
@@ -155,7 +163,7 @@ These scenarios are verified for both TCP and UDP protocols. In UDP, tests inclu
 
 Assuming the user has authorized and the client is in the `Open` state:
 
-| Scenario | Input | Output |
+| Scenario | Input | Expected Output |
 |----------|-------|--------|
 | Send message | - Client sends random message | - Output message to stdout |
 | Receive message | - Client receives message from server | - Output message to stdout |
@@ -169,7 +177,7 @@ Assuming the user has authorized and the client is in the `Open` state:
 
 Scenarios specific to UDP protocol:
 
-| Scenario | Input | Output |
+| Scenario | Input | Expected Output |
 |----------|-------|--------|
 | Dynamic Port | - Send /auth<br>- Receive CONFIRM on different port<br>- Send message | - Server receives payload on the dynamic port sent CONFIRM of the AUTH |
 | Timeout | - Client sends payload<br>- Server does not react | - Attempt re-send n times based on the program argument<br>- Terminate the program if exceeding the number of retransmissions |
@@ -181,13 +189,13 @@ Scenarios specific to UDP protocol:
 Prof. Ing.Jan M Honzík, CSc.
 ALGORITMY IAL Studijní opora. 
 2024.
-[cited 2024-02-11]
+[cited 2024-03-31]
 
 [RFC9293] 
 Eddy, W. 
 Transmission Control Protocol (TCP) [online]. 
 August 2022. 
-[cited 2024-02-11]. 
+[cited 2024-03-31]. 
 DOI: 10.17487/RFC9293. 
 Available at: https://datatracker.ietf.org/doc/html/rfc9293
 
@@ -195,7 +203,7 @@ Available at: https://datatracker.ietf.org/doc/html/rfc9293
 J. Postel.
 User Datagram Protocol [online]. 
 August 1980. 
-[cited 2024-02-11]. 
+[cited 2024-03-31]. 
 DOI: 10.17487/RFC0768.
 Available at: https://datatracker.ietf.org/doc/html/rfc768
 
@@ -204,5 +212,6 @@ Mathur, Aditya P.
 Foundations of Software Testing. 
 Pearson Education India. p. 18. 
 2007. 
+[cited 2024-04-01]
 ISBN 978-81-317-1660-1.
 Avaiable at: https://books.google.cz/books?id=yU-rTcurys8C
