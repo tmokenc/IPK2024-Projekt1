@@ -23,7 +23,7 @@ int parse_16bit_number(char *str) {
     return num;
 }
 
-Args parse_args(int argc, char **argv, ProgramMode prg_mode) {
+Args parse_args(int argc, char **argv) {
     Args args;
 
     if (argc == 2 && strcmp(argv[1], "-h") == 0) {
@@ -59,27 +59,11 @@ Args parse_args(int argc, char **argv, ProgramMode prg_mode) {
         }
 
         switch (key[1]) {
+#ifdef SERVER_F
             case 'l': {
-                if (prg_mode != ProgramMode_Server) {
-                    set_error(Error_InvalidArgument);
-                    return args;
-                }
-
-                if (got_host) {
-                    set_error(Error_DuplicatedArgument);
-                    return args;
-                }
-
-                args.host = val;
-                got_host = true;
-                break;
-            }
+#else
             case 's': {
-                if (prg_mode != ProgramMode_Client) {
-                    set_error(Error_InvalidArgument);
-                    return args;
-                }
-
+#endif
                 if (got_host) {
                     set_error(Error_DuplicatedArgument);
                     return args;
@@ -108,12 +92,8 @@ Args parse_args(int argc, char **argv, ProgramMode prg_mode) {
                 break;
             }
 
+            #ifndef SERVER_F
             case 't': {
-                if (prg_mode != ProgramMode_Client) {
-                    set_error(Error_InvalidArgument);
-                    return args;
-                }
-
                 if (got_mode) {
                     set_error(Error_DuplicatedArgument);
                     return args;
@@ -131,6 +111,7 @@ Args parse_args(int argc, char **argv, ProgramMode prg_mode) {
                 got_mode = true;
                 break;
             }
+            #endif
 
             case 'd': {
                 if (got_timeout) {
@@ -174,19 +155,21 @@ Args parse_args(int argc, char **argv, ProgramMode prg_mode) {
     }
 
     if (!got_host) {
-        if (prg_mode == ProgramMode_Client) {
+        #ifndef SERVER_F
             set_error(Error_InvalidArgument);
             eprint("Missing hostname. Please use -s <hostname>\n");
-        } else {
+        #else
             strcpy(args.host, "0.0.0.0");
-        }
+        #endif
 
     } 
 
-    if (!got_mode && prg_mode == ProgramMode_Client) {
+#ifndef SERVER_F
+    if (!got_mode) {
         set_error(Error_InvalidArgument);
         eprint("Missing connection mode. Please use -t (udp|tcp)");
     }
+#endif
 
     return args;
 }

@@ -1,4 +1,5 @@
 PROJ=ipk24chat-client
+SERVER=ipk24chat-server
 SRC_DIR=src
 DOC_DIR=doc
 BUILD_DIR=build
@@ -6,6 +7,7 @@ BUILD_DIR=build
 CC=gcc
 CFLAGS=-Wall -Wextra -O2 -MMD -Werror -Wpedantic -g
 DEBUG_FLAG=-DDEBUG_F
+SERVER_FLAG=-DSERVER_F
 # LDFLAGS=
 
 SRCS=$(wildcard $(SRC_DIR)/*.c)
@@ -23,6 +25,13 @@ $(PROJ): $(OBJS)
 
 debug: $(DEBUG_OBJS)
 	$(CC) $(DEBUG_FLAG) $(CFLAGS) -o $(PROJ) $^
+
+
+$(SERVER): $(OBJS)
+	$(CC) $(SERVER_FLAG) $(CFLAGS) -o $@ $^
+
+server-debug: $(DEBUG_OBJS)
+	$(CC) $(DEBUG_FLAG) $(CFLAGS) -o $(SERVER) $^
 
 
 test: test/main.c $(TEST_OBJS)

@@ -20,14 +20,6 @@ typedef enum {
 } Mode;
 
 /**
- * @brief Enumeration of program modes.
- */
-typedef enum {
-    ProgramMode_Client,
-    ProgramMode_Server,
-} ProgramMode;
-
-/**
  * @brief Structure representing parsed command-line arguments.
  */
 typedef struct {
@@ -47,6 +39,6 @@ typedef struct {
  * @return Parsed command-line arguments structure.
  * @note This raise `Error_InvalidArgument` on failure.
  */
-Args parse_args(int argc, char **argv, ProgramMode mode);
+Args parse_args(int argc, char **argv);
 
 #endif
