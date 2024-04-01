@@ -59,6 +59,7 @@ char *CHAT_HELP_MESSAGE =
 "/rename {display_name} - use to new {display_name} instead\n"
 "/help - to show this message\n"
 "/clear - clear the terminal\n"
+"/exit - End the chat app\n"
 "";
 
 enum state STATE = State_Start;

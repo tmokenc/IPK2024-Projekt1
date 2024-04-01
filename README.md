@@ -111,6 +111,11 @@ The main function is responsible for parsing command-line arguments as per the s
 
 + **Clean Up**: Performs necessary cleanup of initialized data before program termination.
 
+#### Additional Commands
+In addition to the set of commands specified in the project specification, this project implements 2 additional commands to enhance the chatting experience:
+- **exit**: Similar to sending a SIGINT signal by pressing ctrl-c, but provides a clearer indication to the user.
+- **clear**: Clears the terminal screen for improved readability.
+
 ## Decision Making <a id="decision-making"></a>
 During the development process, several key decisions were made to guide the implementation of the program.
 
@@ -150,7 +155,11 @@ The program was tested on my system with the following specifications:
 All outputs aligned with their expected results at the time of testing.
 
 ### Unit Tests <a id="unit-tests"></a>
-Unit tests are conducted using the [`greatest` testing framework](https://github.com/silentbicycle/greatest) by Scott Vokes, validating various components of the chat client's functionality. These tests, located in the `/test` directory, cover modules with functions independent of others, such as UDP/TCP de/serialization, command parsing, and argument parsing. They can be executed using the `make test` command.
+Unit tests are conducted using the [`greatest` testing framework](https://github.com/silentbicycle/greatest) by Scott Vokes, validating various components of the chat client's functionality. 
+
+These tests, located in the `/test` directory, cover modules with functions independent of others, such as data structures, UDP/TCP de/serialization, command parsing, and argument parsing. 
+
+They can be executed using the `make test` command.
 
 ### Dynamic Testing <a id="dynamic-testing"></a>
 Dynamic testing involves observing the program's behavior while it is running. 
@@ -203,6 +212,7 @@ Scenarios specific to UDP protocol:
 
 ## Note <a id="note"></a>
 This document was done with the help of [Deepl Write](https://www.deepl.com/write).
+
 ## Bibliography <a id="bibliography"></a>
 [IAL]
 Prof. Ing.Jan M Honzík, CSc.
